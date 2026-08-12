@@ -1,6 +1,7 @@
 import os
 import requests
 from state import MealPrepState
+from db import get_cached_recipe, cache_recipe
 
 GENERATE_URL = "https://api.spoonacular.com/mealplanner/generate"
 INFO_URL = "https://api.spoonacular.com/recipes/{id}/information"
@@ -42,6 +43,11 @@ def mealplan_agent(state: MealPrepState) -> dict:
 
     details = {}
     for recipe_id in unique_ids:
+        cached = get_cached_recipe(recipe_id)
+        if cached is not None:
+            details[recipe_id] = cached
+            continue
+
         info_response = requests.get(
             INFO_URL.format(id=recipe_id),
             params={"apiKey": api_key, "includeNutrition": True},
@@ -50,7 +56,7 @@ def mealplan_agent(state: MealPrepState) -> dict:
         info = info_response.json()
         nutrients = info.get("nutrition", {}).get("nutrients", [])
 
-        details[recipe_id] = {
+        recipe_data = {
             "title": info.get("title"),
             "calories": get_nutrient(nutrients, "Calories"),
             "protein_g": get_nutrient(nutrients, "Protein"),
@@ -63,6 +69,8 @@ def mealplan_agent(state: MealPrepState) -> dict:
                 ing.get("original") for ing in info.get("extendedIngredients", [])
             ],
         }
+        cache_recipe(recipe_id, recipe_data)
+        details[recipe_id] = recipe_data
 
     meal_plan = {}
     for day_name, day_data in week.items():

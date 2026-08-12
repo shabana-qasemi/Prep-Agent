@@ -1,4 +1,4 @@
-# PrepAgent
+# Prep-Agent
 
 **An AI multi-agent orchestrator for personalized meal prep.**
 
@@ -6,7 +6,7 @@ Describe your goal in plain English — bulking, cutting, a tight weekly budget,
 
 ## How it works
 
-Most "AI meal planner" apps run the same fixed sequence of steps for every request. PrepAgent doesn't — it's built around a **dynamic orchestrator pattern**: one agent reads your goal, decides which steps actually apply, and the graph routes itself accordingly at runtime.
+Most "AI meal planner" apps run the same fixed sequence of steps for every request. Prep-Agent doesn't — it's built around a **dynamic orchestrator pattern**: one agent reads your goal, decides which steps actually apply, and the graph routes itself accordingly at runtime.
 
 ```mermaid
 flowchart TD

@@ -19,8 +19,8 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "PrepAgent — AI Multi-Agent Meal Prep Orchestrator",
-  description: "Describe your goal in plain English and PrepAgent's orchestrator agent dynamically delegates to specialized sub-agents for macros, meal planning, budgeting, and grocery lists.",
+  title: "Prep-Agent — AI Multi-Agent Meal Prep Orchestrator",
+  description: "Describe your goal in plain English and Prep-Agent's orchestrator agent dynamically delegates to specialized sub-agents for macros, meal planning, budgeting, and grocery lists.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
