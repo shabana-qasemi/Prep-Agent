@@ -23,7 +23,10 @@ jobs:
           # construct successfully — every test mocks the actual API calls,
           # so this key is never used to make a real, billable request.
           ANTHROPIC_API_KEY: sk-ci-dummy-key
-        run: pytest -q
+        # `python -m pytest` (not bare `pytest`) so the backend directory
+        # itself lands on sys.path — otherwise `import db` etc. fail here
+        # even though they work locally where a stale sys.path lingers.
+        run: python -m pytest -q
 
   frontend:
     runs-on: ubuntu-latest
@@ -38,6 +41,8 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --legacy-peer-deps
+      - name: Generate Next.js route types
+        run: npx next typegen
       - name: Type-check
         run: npx tsc --noEmit
       - name: Lint
