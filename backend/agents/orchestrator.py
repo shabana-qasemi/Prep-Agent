@@ -18,10 +18,10 @@ def orchestrator_agent(state: MealPrepState) -> dict:
                 f"\"{state.goal}\"\n\n"
                 "Decide which of these steps are needed to fulfill it, in order:\n"
                 "- macro: calculate daily macro/calorie targets (needed if they mention protein, calories, bulking, cutting, or macros)\n"
-                "- mealplan: build a 7-day meal plan matching macro targets (almost always needed)\n"
+                "- mealplan: build a meal plan matching macro targets (almost always needed)\n"
                 "- budget: adjust for cost constraints (only if they mention a budget or price limit)\n"
                 "- grocery: consolidate a grocery list (needed if they want to actually shop/cook)\n\n"
-                "Return only the relevant step names, in the order they should run."
+                "Also figure out how many days of meals they want. If they don't say, default to 7."
             ),
         }],
         output_config={
@@ -33,9 +33,10 @@ def orchestrator_agent(state: MealPrepState) -> dict:
                         "plan": {
                             "type": "array",
                             "items": {"type": "string", "enum": VALID_STEPS},
-                        }
+                        },
+                        "days": {"type": "integer", "minimum": 1, "maximum": 7},
                     },
-                    "required": ["plan"],
+                    "required": ["plan", "days"],
                     "additionalProperties": False,
                 },
             }
@@ -45,4 +46,4 @@ def orchestrator_agent(state: MealPrepState) -> dict:
     text = next(block.text for block in response.content if block.type == "text")
     data = json.loads(text)
 
-    return {"plan": data["plan"]}
+    return {"plan": data["plan"], "days": data["days"]}

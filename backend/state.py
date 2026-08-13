@@ -5,6 +5,7 @@ from pydantic import BaseModel
 class MealPrepState(BaseModel):
     goal: str
     plan: Optional[list[str]] = None
+    days: Optional[int] = None
     macro_targets: Optional[dict] = None
     meal_plan: Optional[dict] = None
     budget_notes: Optional[str] = None

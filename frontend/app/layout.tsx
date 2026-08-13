@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,22 +12,30 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-});
+const title = "Prep-Agent — AI Multi-Agent Meal Prep Orchestrator";
+const description =
+  "Describe your goal in plain English and Prep-Agent's orchestrator agent dynamically delegates to specialized sub-agents for macros, meal planning, budgeting, and grocery lists.";
 
 export const metadata: Metadata = {
-  title: "Prep-Agent — AI Multi-Agent Meal Prep Orchestrator",
-  description: "Describe your goal in plain English and Prep-Agent's orchestrator agent dynamically delegates to specialized sub-agents for macros, meal planning, budgeting, and grocery lists.",
+  title,
+  description,
+  openGraph: {
+    title,
+    description,
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title,
+    description,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

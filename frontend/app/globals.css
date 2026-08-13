@@ -3,8 +3,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #faf6ef;
-  --foreground: #2a2318;
+  --background: #fafafa;
+  --foreground: #18181b;
 }
 
 @theme inline {
@@ -12,57 +12,15 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-fraunces);
 }
 
 .dark {
-  --background: #120f1a;
-  --foreground: #f3ead9;
+  --background: #0a0a0b;
+  --foreground: #f4f4f5;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-}
-
-@keyframes liquid-blob-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(70px, -50px) scale(1.15); }
-  66% { transform: translate(-35px, 55px) scale(0.9); }
-}
-
-@keyframes liquid-blob-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-55px, 35px) scale(0.92); }
-  66% { transform: translate(45px, -40px) scale(1.12); }
-}
-
-@keyframes liquid-blob-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(40px, 50px) scale(1.08); }
-  66% { transform: translate(-50px, -30px) scale(0.95); }
-}
-
-@keyframes aurora-hue-shift {
-  0%, 100% { filter: hue-rotate(0deg); }
-  50% { filter: hue-rotate(55deg); }
-}
-
-@keyframes float-icon-a {
-  0%, 100% { translate: 0 0; }
-  50% { translate: 0 -22px; }
-}
-
-@keyframes float-icon-b {
-  0%, 100% { translate: 0 0; }
-  50% { translate: 0 16px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  [class*="animate-[liquid-blob"],
-  [class*="animate-[aurora-hue-shift"],
-  [style*="float-icon"] {
-    animation: none !important;
-  }
 }

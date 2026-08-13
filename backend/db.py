@@ -32,6 +32,28 @@ def init_db() -> None:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS api_usage (
+            client_ip TEXT NOT NULL,
+            usage_date TEXT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (client_ip, usage_date)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS progress_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visitor_id TEXT NOT NULL,
+            entry_date TEXT NOT NULL,
+            weight REAL NOT NULL,
+            note TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -68,3 +90,46 @@ def get_plan(plan_id: str) -> Optional[dict]:
     row = conn.execute("SELECT data FROM plans WHERE id = ?", (plan_id,)).fetchone()
     conn.close()
     return json.loads(row["data"]) if row else None
+
+
+def get_usage_count(client_ip: str, usage_date: str) -> int:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT count FROM api_usage WHERE client_ip = ? AND usage_date = ?",
+        (client_ip, usage_date),
+    ).fetchone()
+    conn.close()
+    return row["count"] if row else 0
+
+
+def increment_usage(client_ip: str, usage_date: str) -> None:
+    conn = get_connection()
+    conn.execute(
+        """
+        INSERT INTO api_usage (client_ip, usage_date, count) VALUES (?, ?, 1)
+        ON CONFLICT (client_ip, usage_date) DO UPDATE SET count = count + 1
+        """,
+        (client_ip, usage_date),
+    )
+    conn.commit()
+    conn.close()
+
+
+def add_progress_entry(visitor_id: str, entry_date: str, weight: float, note: Optional[str]) -> None:
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO progress_entries (visitor_id, entry_date, weight, note, created_at) VALUES (?, ?, ?, ?, ?)",
+        (visitor_id, entry_date, weight, note, datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_progress_entries(visitor_id: str) -> list[dict]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT entry_date, weight, note FROM progress_entries WHERE visitor_id = ? ORDER BY entry_date ASC",
+        (visitor_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]

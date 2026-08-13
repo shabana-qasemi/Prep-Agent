@@ -72,8 +72,14 @@ def mealplan_agent(state: MealPrepState) -> dict:
         cache_recipe(recipe_id, recipe_data)
         details[recipe_id] = recipe_data
 
+    # Spoonacular only generates a full week — trim down to the number of
+    # days actually requested (it returns Monday-first, so slicing keeps order).
+    requested_days = state.days or 7
+    day_names = list(week.keys())[:requested_days]
+
     meal_plan = {}
-    for day_name, day_data in week.items():
+    for day_name in day_names:
+        day_data = week[day_name]
         meal_plan[day_name] = {
             "meals": [details[meal["id"]] for meal in day_data["meals"]],
             "nutrients": day_data["nutrients"],

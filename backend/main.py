@@ -3,15 +3,27 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import json
+import os
 import uuid
+from datetime import date
+from typing import Optional
 import requests
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from graph import meal_prep_graph
-from db import init_db, save_plan, get_plan
+from db import (
+    init_db,
+    save_plan,
+    get_plan,
+    get_usage_count,
+    increment_usage,
+    add_progress_entry,
+    get_progress_entries,
+)
 from scan import scan_food_photo
+from menu import decode_menu_photo
 
 init_db()
 
@@ -24,9 +36,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Every /api/plan and /api/scan call spends real Anthropic + Spoonacular
+# credits, so if this ever goes live we cap each IP to a small number of
+# generations per day. This is a soft limit, not abuse-proof (an attacker
+# behind a proxy or VPN can rotate IPs) — it only exists to stop *accidental*
+# runaway cost from normal traffic, not to be a security boundary.
+DAILY_REQUEST_LIMIT = int(os.environ.get("DAILY_REQUEST_LIMIT", "5"))
+
+
+def enforce_rate_limit(request: Request) -> None:
+    client_ip = request.client.host if request.client else "unknown"
+    today = date.today().isoformat()
+    if get_usage_count(client_ip, today) >= DAILY_REQUEST_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily free limit of {DAILY_REQUEST_LIMIT} generations reached. Please try again tomorrow.",
+        )
+    increment_usage(client_ip, today)
+
+
 @app.get("/")
 def read_root():
-    return {"message": "ExecAgent Studio backend is alive"}
+    return {"message": "Prep-Agent backend is alive"}
 
 
 class PlanRequest(BaseModel):
@@ -52,7 +83,7 @@ def stream_plan_events(goal: str):
 
 
 @app.post("/api/plan")
-def run_plan(request: PlanRequest):
+def run_plan(request: PlanRequest, _: None = Depends(enforce_rate_limit)):
     return StreamingResponse(stream_plan_events(request.goal), media_type="text/event-stream")
 
 
@@ -65,8 +96,39 @@ def get_saved_plan(plan_id: str):
 
 
 @app.post("/api/scan")
-async def scan_photo(file: UploadFile = File(...)):
+async def scan_photo(file: UploadFile = File(...), _: None = Depends(enforce_rate_limit)):
     try:
         return await scan_food_photo(file)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to analyze photo: {e}")
+
+
+@app.post("/api/menu")
+async def decode_menu(
+    file: UploadFile = File(...),
+    goal: str = Form(...),
+    _: None = Depends(enforce_rate_limit),
+):
+    try:
+        return await decode_menu_photo(file, goal)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze menu: {e}")
+
+
+class ProgressEntryRequest(BaseModel):
+    visitor_id: str
+    entry_date: str
+    weight: float
+    note: Optional[str] = None
+
+
+# No rate limit here — logging progress is pure local storage, no paid API call.
+@app.post("/api/progress")
+def log_progress(request: ProgressEntryRequest):
+    add_progress_entry(request.visitor_id, request.entry_date, request.weight, request.note)
+    return {"status": "ok"}
+
+
+@app.get("/api/progress/{visitor_id}")
+def get_progress(visitor_id: str):
+    return get_progress_entries(visitor_id)
