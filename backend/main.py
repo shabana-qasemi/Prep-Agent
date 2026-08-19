@@ -21,6 +21,9 @@ from db import (
     increment_usage,
     add_progress_entry,
     get_progress_entries,
+    add_daily_meal,
+    get_daily_meals,
+    remove_daily_meal,
 )
 from scan import scan_food_photo
 from menu import decode_menu_photo
@@ -132,3 +135,31 @@ def log_progress(request: ProgressEntryRequest):
 @app.get("/api/progress/{visitor_id}")
 def get_progress(visitor_id: str):
     return get_progress_entries(visitor_id)
+
+
+class DailyMealRequest(BaseModel):
+    visitor_id: str
+    entry_date: str
+    meal_name: str
+    calories: float
+    protein: float
+
+
+# No rate limit here either — logging a meal name/macros is pure local
+# storage, no paid API call (unlike /api/scan, which reads the values from
+# a photo via Claude vision).
+@app.post("/api/progress/meals")
+def log_daily_meal(request: DailyMealRequest):
+    meal_id = add_daily_meal(request.visitor_id, request.entry_date, request.meal_name, request.calories, request.protein)
+    return {"id": meal_id}
+
+
+@app.get("/api/progress/meals/{visitor_id}")
+def get_daily_meal_log(visitor_id: str, entry_date: str):
+    return get_daily_meals(visitor_id, entry_date)
+
+
+@app.delete("/api/progress/meals/{meal_id}")
+def delete_daily_meal(meal_id: int, visitor_id: str):
+    remove_daily_meal(meal_id, visitor_id)
+    return {"status": "ok"}

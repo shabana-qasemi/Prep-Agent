@@ -43,30 +43,39 @@ export interface PlanResult {
 
 export const DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
-export const cardClass =
-  "bg-white dark:bg-[#1c1917] border border-[#e7e5e4] dark:border-[#292524] rounded-xl shadow-sm p-5";
+export const cardClass = "bg-[var(--card)] border-[1.5px] border-[var(--border)] rounded-2xl p-6";
+
+function exportGroceryList(items: string[]) {
+  const blob = new Blob([items.join("\n")], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "prep-agent-grocery-list.txt";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function PlanResults({ result }: { result: PlanResult }) {
-  const { isChecked, toggle } = useMyList();
+  const { items: myListItems, isChecked, toggle } = useMyList();
 
   return (
     <>
       {result.plan && (
-        <p className="text-sm text-[#57534e] dark:text-[#a8a29e] -mt-2">
+        <p className="text-[13.5px] text-[var(--faint)] -mt-2">
           Orchestrator ran: {result.plan.join(" → ")}
         </p>
       )}
 
       {result.macro_targets && (
         <section className={cardClass}>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-[#1c1917] dark:text-[#f5f5f4] mb-2">
+          <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
             <Target size={18} /> Daily Targets
           </h2>
-          <p className="text-[#292524] dark:text-[#d6d3d1]">
-            {result.macro_targets.calories} kcal · {result.macro_targets.protein_g}g protein ·{" "}
-            {result.macro_targets.carbs_g}g carbs · {result.macro_targets.fat_g}g fat
+          <p className="m-0 text-base">
+            {result.macro_targets.calories} kcal &nbsp;·&nbsp; {result.macro_targets.protein_g}g protein
+            &nbsp;·&nbsp; {result.macro_targets.carbs_g}g carbs &nbsp;·&nbsp; {result.macro_targets.fat_g}g fat
           </p>
-          <p className="text-sm text-[#57534e] dark:text-[#a8a29e] mt-2">
+          <p className="mt-2 mb-0 text-[13.5px] text-[var(--faint)] leading-relaxed">
             {result.macro_targets.notes}
           </p>
         </section>
@@ -74,55 +83,48 @@ export default function PlanResults({ result }: { result: PlanResult }) {
 
       {result.meal_plan && (
         <section className={cardClass}>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-[#1c1917] dark:text-[#f5f5f4] mb-1">
+          <h2 className="flex items-center gap-2 text-base font-extrabold mb-1">
             <UtensilsCrossed size={18} /> {Object.keys(result.meal_plan).length}-Day Meal Plan
           </h2>
-          <p className="text-xs text-[#a8a29e] dark:text-[#78716c] italic mb-4">
+          <p className="mb-4 text-[12.5px] text-[var(--faint)]">
             Prices shown are estimated U.S. averages from recipe data — actual cost varies by store, brand, and region.
           </p>
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4">
             {DAY_ORDER.filter((day) => result.meal_plan?.[day]).map((day) => {
               const dayPlan = result.meal_plan![day];
               return (
                 <div key={day}>
                   <div className="flex justify-between items-baseline mb-2">
-                    <h3 className="font-medium text-[#1c1917] dark:text-[#f5f5f4] capitalize">
-                      {day}
-                    </h3>
-                    <span className="text-xs text-[#57534e] dark:text-[#a8a29e]">
+                    <span className="font-bold text-[14.5px] capitalize">{day}</span>
+                    <span className="text-[12.5px] text-[var(--faint)]">
                       {Math.round(dayPlan.nutrients.calories)} kcal ·{" "}
                       {Math.round(dayPlan.nutrients.protein)}g protein
                     </span>
                   </div>
-                  <ul className="flex flex-col gap-2">
+                  <div className="flex flex-col">
                     {dayPlan.meals.map((meal, i) => (
-                      <li
+                      <div
                         key={i}
-                        className="flex flex-wrap justify-between items-baseline gap-x-3 gap-y-0.5 text-sm text-[#292524] dark:text-[#d6d3d1]"
+                        className="flex flex-wrap justify-between items-start gap-x-3 gap-y-0.5 text-sm py-1.5 border-t border-[var(--border)]"
                       >
                         <span className="min-w-0 break-words">
-                          <span className="text-[#2563eb] dark:text-[#60a5fa] font-medium mr-1.5">
+                          <span className="font-bold mr-1" style={{ color: "var(--accent)" }}>
                             {MEAL_LABELS[i] ?? "Meal"}:
                           </span>
                           {meal.source_url ? (
-                            <a
-                              href={meal.source_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline decoration-[#2563eb]/50 underline-offset-2 hover:decoration-[#2563eb]"
-                            >
+                            <a href={meal.source_url} target="_blank" rel="noopener noreferrer">
                               {meal.title}
                             </a>
                           ) : (
                             meal.title
                           )}
                         </span>
-                        <span className="text-[#57534e] dark:text-[#a8a29e] shrink-0 ml-3">
+                        <span className="text-[var(--faint)] shrink-0 whitespace-nowrap">
                           {Math.round(meal.calories)} kcal · ${meal.price_per_serving.toFixed(2)}
                         </span>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               );
             })}
@@ -132,55 +134,67 @@ export default function PlanResults({ result }: { result: PlanResult }) {
 
       {result.budget_notes && (
         <section className={cardClass}>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-[#1c1917] dark:text-[#f5f5f4] mb-2">
+          <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
             <Wallet size={18} /> Budget Notes
           </h2>
-          <p className="whitespace-pre-wrap text-[#292524] dark:text-[#d6d3d1] text-sm leading-relaxed">
-            {result.budget_notes}
-          </p>
+          <p className="whitespace-pre-wrap m-0 text-[14.5px] leading-relaxed">{result.budget_notes}</p>
         </section>
       )}
 
       {result.grocery_list && (
         <section className={cardClass}>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-[#1c1917] dark:text-[#f5f5f4] mb-1">
-            <ShoppingCart size={18} /> Grocery List
-          </h2>
-          <p className="text-xs text-[#57534e] dark:text-[#a8a29e] mb-3">
-            Check items off to add them to My List, in the header above.
-          </p>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {result.grocery_list.map((item, i) => {
-              const checked = isChecked(item);
-              return (
-                <li
-                  key={i}
-                  className="flex items-center gap-2 text-[#292524] dark:text-[#d6d3d1] text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggle(item)}
-                    className="accent-[#2563eb] w-4 h-4 rounded shrink-0"
-                  />
-                  <span className={checked ? "line-through text-[#a8a29e] dark:text-[#78716c]" : ""}>
+          <div className="flex justify-between items-center mb-1">
+            <h2 className="flex items-center gap-2 text-base font-extrabold m-0">
+              <ShoppingCart size={18} /> Grocery List
+            </h2>
+            <button
+              onClick={() => exportGroceryList(result.grocery_list!)}
+              className="text-[12.5px] font-bold bg-none border-none cursor-pointer underline"
+              style={{ color: "var(--accent)" }}
+            >
+              Export list
+            </button>
+          </div>
+          <p className="mb-3 text-[12.5px] text-[var(--faint)]">Check items off to add them to My List.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+            {result.grocery_list.map((item, i) => (
+              <label key={i} className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isChecked(item)}
+                  onChange={() => toggle(item)}
+                  className="w-[15px] h-[15px] shrink-0"
+                />
+                <span>{item}</span>
+              </label>
+            ))}
+          </div>
+
+          {myListItems.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-[var(--border)]">
+              <h3 className="text-sm font-bold mb-2">My List ({myListItems.length})</h3>
+              <ul className="flex flex-wrap gap-1.5">
+                {myListItems.map((item) => (
+                  <li
+                    key={item}
+                    className="text-xs px-2 py-1 rounded-md"
+                    style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                  >
                     {item}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 
       {result.final_summary && (
-        <section className={`${cardClass} border-l-4 border-l-[#2563eb] dark:border-l-[#60a5fa]`}>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-[#1c1917] dark:text-[#f5f5f4] mb-2">
-            <Sparkles size={18} /> Your Wrap-Up
+        <section className={cardClass} style={{ background: "var(--alt)", borderColor: "var(--accent-soft)" }}>
+          <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
+            <Sparkles size={18} /> Wrap-Up
           </h2>
-          <p className="whitespace-pre-wrap text-[#292524] dark:text-[#d6d3d1] text-sm leading-relaxed">
-            {result.final_summary}
-          </p>
+          <p className="whitespace-pre-wrap m-0 text-[14.5px] leading-relaxed">{result.final_summary}</p>
         </section>
       )}
     </>

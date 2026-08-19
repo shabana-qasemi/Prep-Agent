@@ -3,24 +3,96 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #fafafa;
-  --foreground: #18181b;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #f7f4ee;
+  --card: #fffdf9;
+  --border: rgba(26, 20, 14, 0.11);
+  --track: #e9e1d2;
+  --alt: #f1ebdf;
+  --text: #191510;
+  --muted: #645a4d;
+  --faint: #a39683;
+  --input: #ffffff;
+  --accent: #96702f;
+  --accent-hover: #7c5b24;
+  --accent-disabled: #d9c8a5;
+  --accent-soft: #efe4cc;
+  --accent2: #4a453c;
+  --accent2-soft: #eae6dd;
 }
 
 .dark {
-  --background: #0a0a0b;
-  --foreground: #f4f4f5;
+  --bg: #15120e;
+  --card: #1e1912;
+  --border: rgba(247, 241, 230, 0.12);
+  --track: #2b241a;
+  --alt: #221c15;
+  --text: #f4eee1;
+  --muted: #b6aa96;
+  --faint: #867a68;
+  --input: #1a150f;
+  --accent: #c9a668;
+  --accent-hover: #dbbb85;
+  --accent-disabled: #4d4230;
+  --accent-soft: rgba(201, 166, 104, 0.15);
+  --accent2: #a6a094;
+  --accent2-soft: rgba(166, 160, 148, 0.14);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans);
+}
+
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: var(--accent-hover);
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+}
+
+::placeholder {
+  color: var(--faint);
+}
+
+@keyframes pa-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@keyframes pa-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pa-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pa-slide-in {
+  from { transform: translateX(28px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pa-shimmer {
+  0% { background-position: -300px 0; }
+  100% { background-position: 300px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-"] {
+    animation: none !important;
+  }
 }

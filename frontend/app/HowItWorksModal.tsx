@@ -32,27 +32,27 @@ const STEPS = [
 export default function HowItWorksModal({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-30 flex items-start sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-30 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+      style={{ background: "rgba(0,0,0,0.4)", animation: "pa-fade-in .2s ease" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#1c1917] border border-[#e7e5e4] dark:border-[#292524] rounded-xl shadow-lg p-6 my-8"
+        className="w-full max-w-lg bg-[var(--card)] rounded-2xl p-7 my-8"
+        style={{ boxShadow: "0 24px 56px rgba(20,16,8,0.1)", animation: "pa-fade-up .3s ease" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#1c1917] dark:text-[#f5f5f4]">
-            How Prep-Agent works
-          </h2>
+          <h2 className="text-lg font-extrabold">How Prep-Agent works</h2>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="text-[#57534e] dark:text-[#a8a29e] hover:text-[#2563eb] dark:hover:text-[#60a5fa]"
+            className="text-[var(--faint)] hover:text-[var(--accent)] bg-none border-none cursor-pointer text-xl leading-none"
           >
             <X size={18} />
           </button>
         </div>
 
-        <p className="text-sm text-[#57534e] dark:text-[#a8a29e] mb-5">
+        <p className="text-sm text-[var(--muted)] mb-5">
           Prep-Agent isn&apos;t a fixed script — an orchestrator agent reads your goal and only runs the steps you
           actually need, in order:
         </p>
@@ -60,12 +60,15 @@ export default function HowItWorksModal({ onClose }: { onClose: () => void }) {
         <ol className="flex flex-col gap-4">
           {STEPS.map((step, i) => (
             <li key={step.title} className="flex gap-3">
-              <span className="shrink-0 h-6 w-6 rounded-full bg-[#2563eb]/10 dark:bg-[#60a5fa]/10 text-[#2563eb] dark:text-[#60a5fa] text-xs font-semibold flex items-center justify-center">
+              <span
+                className="shrink-0 h-6 w-6 rounded-full text-xs font-extrabold flex items-center justify-center"
+                style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+              >
                 {i + 1}
               </span>
               <div>
-                <p className="text-sm font-medium text-[#1c1917] dark:text-[#f5f5f4]">{step.title}</p>
-                <p className="text-sm text-[#57534e] dark:text-[#a8a29e]">{step.body}</p>
+                <p className="text-[14.5px] font-bold mb-0.5">{step.title}</p>
+                <p className="text-[13.5px] text-[var(--muted)] leading-relaxed">{step.body}</p>
               </div>
             </li>
           ))}

@@ -7,51 +7,59 @@ export default function MyListPanel({ onClose }: { onClose: () => void }) {
   const { items, remove, clear } = useMyList();
 
   return (
-    <div className="fixed top-20 right-6 z-20 w-72 max-w-[calc(100vw-3rem)] bg-white dark:bg-[#1c1917] border border-[#e7e5e4] dark:border-[#292524] rounded-xl shadow-lg p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-[#1c1917] dark:text-[#f5f5f4]">
-          My List
-        </h2>
-        <button
-          onClick={onClose}
-          aria-label="Close my list"
-          className="text-[#57534e] dark:text-[#a8a29e] hover:text-[#2563eb] dark:hover:text-[#60a5fa]"
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-      {items.length === 0 ? (
-        <p className="text-sm text-[#57534e] dark:text-[#a8a29e]">
-          Check items off any grocery list — from Chat, Example, Manual Entry, or Pantry — and they&apos;ll collect here.
-        </p>
-      ) : (
-        <>
-          <ul className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
-            {items.map((item) => (
-              <li
-                key={item}
-                className="flex items-center justify-between gap-2 text-sm text-[#292524] dark:text-[#d6d3d1]"
-              >
-                <span>{item}</span>
-                <button
-                  onClick={() => remove(item)}
-                  aria-label={`Remove ${item}`}
-                  className="text-[#a8a29e] hover:text-red-500 shrink-0"
-                >
-                  <X size={13} />
-                </button>
-              </li>
-            ))}
-          </ul>
+    <div
+      className="fixed inset-0 z-35"
+      style={{ background: "rgba(0,0,0,0.35)", animation: "pa-fade-in .2s ease" }}
+      onClick={onClose}
+    >
+      <div
+        className="absolute top-0 right-0 h-full w-[340px] max-w-[90vw] bg-[var(--card)] p-7 overflow-y-auto"
+        style={{ boxShadow: "-24px 0 60px rgba(0,0,0,0.2)", animation: "pa-slide-in .28s ease" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-extrabold">My List</h2>
           <button
-            onClick={clear}
-            className="flex items-center justify-center gap-1.5 text-xs text-[#57534e] dark:text-[#a8a29e] hover:text-red-500 dark:hover:text-red-400 border-t border-[#e7e5e4] dark:border-[#292524] pt-2"
+            onClick={onClose}
+            aria-label="Close my list"
+            className="text-[var(--faint)] hover:text-[var(--accent)] bg-none border-none cursor-pointer text-xl leading-none"
           >
-            <Trash2 size={12} /> Clear all
+            <X size={16} />
           </button>
-        </>
-      )}
+        </div>
+
+        {items.length === 0 ? (
+          <p className="text-sm text-[var(--faint)] leading-relaxed">
+            Nothing here yet — check items off a grocery list to save them.
+          </p>
+        ) : (
+          <>
+            <ul className="flex flex-col gap-2.5">
+              {items.map((item) => (
+                <li
+                  key={item}
+                  className="flex items-center justify-between gap-2 text-sm py-1 border-b border-[var(--border)]"
+                >
+                  <span>{item}</span>
+                  <button
+                    onClick={() => remove(item)}
+                    aria-label={`Remove ${item}`}
+                    className="text-[var(--faint)] hover:text-red-500 shrink-0 bg-none border-none cursor-pointer text-sm"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={clear}
+              className="flex items-center gap-1.5 text-xs text-[var(--faint)] hover:text-red-500 bg-none border-none cursor-pointer mt-4"
+            >
+              <Trash2 size={12} /> Clear all
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

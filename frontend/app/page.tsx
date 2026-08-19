@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { Moon, Sun, ShoppingCart } from "lucide-react";
 import ChatTab from "./ChatTab";
 import ExampleTab from "./ExampleTab";
@@ -11,6 +10,7 @@ import MenuDecoderTab from "./MenuDecoderTab";
 import ProgressTrackerTab from "./ProgressTrackerTab";
 import MyListPanel from "./MyListPanel";
 import HowItWorksModal from "./HowItWorksModal";
+import OnboardingModal from "./OnboardingModal";
 import { useMyList } from "./useMyList";
 
 const TABS = [
@@ -29,17 +29,21 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabKey>("chat");
   const [showMyList, setShowMyList] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [prefillGoal, setPrefillGoal] = useState<string | null>(null);
   const { items: myListItems } = useMyList();
 
   useEffect(() => {
     const stored = localStorage.getItem("theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const isDark = stored ? stored === "dark" : prefersDark;
+    const onboarded = localStorage.getItem("prepagent_onboarded") === "1";
     // localStorage/matchMedia aren't available during SSR, so the real theme
     // can only be read after mount — this sync setState-in-effect is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDarkMode(isDark);
     document.documentElement.classList.toggle("dark", isDark);
+    setShowOnboarding(!onboarded);
   }, []);
 
   function toggleDarkMode() {
@@ -49,86 +53,73 @@ export default function Home() {
     localStorage.setItem("theme", next ? "dark" : "light");
   }
 
+  function handleOnboardingFinish(goalText: string | null) {
+    localStorage.setItem("prepagent_onboarded", "1");
+    setShowOnboarding(false);
+    if (goalText) {
+      setActiveTab("chat");
+      setPrefillGoal(goalText);
+    }
+  }
+
   return (
-    <div className="relative min-h-screen bg-[#fafaf9] dark:bg-[#0c0a09] overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-72 sm:h-96 overflow-hidden flex">
-        <div className="relative w-1/2 h-full">
-          <Image
-            src="/hero-meal-prep.jpg"
-            alt=""
-            fill
-            priority
-            className="object-cover object-center dark:brightness-[0.5] dark:contrast-125"
-          />
-        </div>
-        <div className="relative w-1/2 h-full">
-          <Image
-            src="/hero-protein-bowl.jpg"
-            alt=""
-            fill
-            priority
-            className="object-cover object-center dark:brightness-[0.5] dark:contrast-125"
-          />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/25 to-[#fafaf9] dark:via-black/35 dark:to-[#0c0a09]" />
-      </div>
-
-      <button
-        onClick={toggleDarkMode}
-        aria-label="Toggle dark mode"
-        className="fixed top-6 right-6 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-white/80 dark:bg-[#1c1917]/80 border border-[#e7e5e4] dark:border-[#292524] backdrop-blur text-lg"
-      >
-        {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
-
-      <button
-        onClick={() => setShowMyList((v) => !v)}
-        aria-label="View my list"
-        className="fixed top-6 right-20 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-white/80 dark:bg-[#1c1917]/80 border border-[#e7e5e4] dark:border-[#292524] backdrop-blur text-lg relative"
-      >
-        <ShoppingCart size={18} />
-        {myListItems.length > 0 && (
-          <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-[#2563eb] text-white text-[10px] font-medium">
-            {myListItems.length}
-          </span>
-        )}
-      </button>
-
+    <div className="relative min-h-screen bg-[var(--bg)] text-[var(--text)]">
+      {showOnboarding && <OnboardingModal onFinish={handleOnboardingFinish} />}
       {showMyList && <MyListPanel onClose={() => setShowMyList(false)} />}
       {showHowItWorks && <HowItWorksModal onClose={() => setShowHowItWorks(false)} />}
 
-      <main className="relative max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col gap-6">
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[#2563eb] dark:text-[#60a5fa] tracking-[0.15em] uppercase">
-              Prep-Agent
-            </span>
-            <button
-              onClick={() => setShowHowItWorks(true)}
-              className="text-xs text-[#57534e] dark:text-[#a8a29e] hover:text-[#2563eb] dark:hover:text-[#60a5fa] underline underline-offset-2"
-            >
-              How it works
-            </button>
-          </div>
+      <header className="flex justify-between items-center px-6 sm:px-12 py-6 sm:py-7 border-b border-[var(--border)] gap-4">
+        <span className="font-serif text-xl sm:text-2xl font-semibold tracking-tight whitespace-nowrap shrink-0">
+          Prep-Agent
+        </span>
 
-          <div className="flex flex-nowrap justify-center gap-0.5 overflow-x-auto rounded-lg bg-[#f5f5f4] dark:bg-[#1c1917] p-1 border border-[#e7e5e4] dark:border-[#292524] max-w-full">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-3.5 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
-                  activeTab === tab.key
-                    ? "bg-[#ffffff] dark:bg-[#292524] text-[#2563eb] dark:text-[#60a5fa] shadow-sm"
-                    : "text-[#57534e] dark:text-[#a8a29e] hover:text-[#2563eb] dark:hover:text-[#60a5fa]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-nowrap overflow-x-auto gap-4 text-xs font-semibold uppercase tracking-wider min-w-0">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`bg-none border-none cursor-pointer whitespace-nowrap shrink-0 transition-colors pb-1 border-b-2 ${
+                activeTab === tab.key
+                  ? "text-[var(--text)] border-[var(--accent)]"
+                  : "text-[var(--faint)] border-transparent hover:text-[var(--muted)]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {activeTab === "chat" && <ChatTab />}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowHowItWorks(true)}
+            className="text-xs font-bold text-[var(--muted)] bg-none border-[1.5px] border-[var(--border)] rounded-full px-4 py-2 cursor-pointer transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] whitespace-nowrap"
+          >
+            How it works
+          </button>
+          <button
+            onClick={toggleDarkMode}
+            aria-label="Toggle dark mode"
+            className="h-[38px] w-[38px] rounded-full bg-[var(--card)] border-[1.5px] border-[var(--border)] flex items-center justify-center shrink-0"
+          >
+            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+          <button
+            onClick={() => setShowMyList((v) => !v)}
+            aria-label="View my list"
+            className="relative h-[38px] w-[38px] rounded-full bg-[var(--card)] border-[1.5px] border-[var(--border)] flex items-center justify-center shrink-0"
+          >
+            <ShoppingCart size={16} />
+            {myListItems.length > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-[var(--accent)] text-white text-[9.5px] font-bold">
+                {myListItems.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </header>
+
+      <main className="relative max-w-[1180px] mx-auto px-6 sm:px-10 pb-24">
+        {activeTab === "chat" && <ChatTab prefillGoal={prefillGoal} onPrefillConsumed={() => setPrefillGoal(null)} />}
         {activeTab === "example" && <ExampleTab />}
         {activeTab === "manual" && <ManualEntryTab />}
         {activeTab === "pantry" && <PantryTab />}

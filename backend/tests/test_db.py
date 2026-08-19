@@ -8,6 +8,9 @@ from db import (
     increment_usage,
     add_progress_entry,
     get_progress_entries,
+    add_daily_meal,
+    get_daily_meals,
+    remove_daily_meal,
 )
 
 
@@ -77,3 +80,37 @@ def test_progress_entries_are_isolated_per_visitor():
     init_db()
     add_progress_entry("visitor-b", "2026-01-01", 150.0, None)
     assert get_progress_entries("someone-else") == []
+
+
+def test_daily_meals_start_empty():
+    init_db()
+    assert get_daily_meals("visitor-c", "2026-01-01") == []
+
+
+def test_daily_meals_are_recorded_for_the_right_day():
+    init_db()
+    add_daily_meal("visitor-d", "2026-01-01", "Chicken bowl", 600, 45)
+    add_daily_meal("visitor-d", "2026-01-02", "Oatmeal", 350, 12)
+    meals = get_daily_meals("visitor-d", "2026-01-01")
+    assert len(meals) == 1
+    assert meals[0]["meal_name"] == "Chicken bowl"
+    assert meals[0]["calories"] == 600
+    assert meals[0]["protein"] == 45
+
+
+def test_remove_daily_meal_deletes_only_that_entry():
+    init_db()
+    add_daily_meal("visitor-e", "2026-01-01", "Eggs", 300, 20)
+    meal_id = add_daily_meal("visitor-e", "2026-01-01", "Steak", 700, 55)
+    remove_daily_meal(meal_id, "visitor-e")
+    meals = get_daily_meals("visitor-e", "2026-01-01")
+    assert len(meals) == 1
+    assert meals[0]["meal_name"] == "Eggs"
+
+
+def test_remove_daily_meal_requires_matching_visitor():
+    init_db()
+    meal_id = add_daily_meal("visitor-f", "2026-01-01", "Salad", 250, 10)
+    remove_daily_meal(meal_id, "someone-else")
+    meals = get_daily_meals("visitor-f", "2026-01-01")
+    assert len(meals) == 1

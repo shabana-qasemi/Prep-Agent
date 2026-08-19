@@ -54,6 +54,19 @@ def init_db() -> None:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS daily_meals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visitor_id TEXT NOT NULL,
+            entry_date TEXT NOT NULL,
+            meal_name TEXT NOT NULL,
+            calories REAL NOT NULL,
+            protein REAL NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -133,3 +146,31 @@ def get_progress_entries(visitor_id: str) -> list[dict]:
     ).fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+def add_daily_meal(visitor_id: str, entry_date: str, meal_name: str, calories: float, protein: float) -> int:
+    conn = get_connection()
+    cursor = conn.execute(
+        "INSERT INTO daily_meals (visitor_id, entry_date, meal_name, calories, protein, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (visitor_id, entry_date, meal_name, calories, protein, datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return cursor.lastrowid
+
+
+def get_daily_meals(visitor_id: str, entry_date: str) -> list[dict]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, meal_name, calories, protein FROM daily_meals WHERE visitor_id = ? AND entry_date = ? ORDER BY id ASC",
+        (visitor_id, entry_date),
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def remove_daily_meal(meal_id: int, visitor_id: str) -> None:
+    conn = get_connection()
+    conn.execute("DELETE FROM daily_meals WHERE id = ? AND visitor_id = ?", (meal_id, visitor_id))
+    conn.commit()
+    conn.close()

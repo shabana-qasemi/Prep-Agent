@@ -29,26 +29,20 @@ export default function SharedPlanPage() {
   }, [params.id]);
 
   return (
-    <div className="relative min-h-screen bg-[#faf6ef] dark:bg-[#120f1a]">
+    <div className="relative min-h-screen bg-[var(--bg)] text-[var(--text)]">
       <main className="relative max-w-2xl mx-auto px-6 py-16 flex flex-col gap-6">
         <header className="flex flex-col gap-3 mb-2">
-          <span className="text-sm font-medium text-[#8b1d6f] dark:text-[#d68fd6] tracking-[0.15em] uppercase">
+          <span className="text-xs font-bold tracking-wider uppercase" style={{ color: "var(--accent)" }}>
             Prep-Agent — Shared Plan
           </span>
           {result?.goal && (
-            <h1 className="font-serif text-3xl leading-tight font-semibold text-[#2a2318] dark:text-[#f3ead9]">
-              &ldquo;{result.goal}&rdquo;
-            </h1>
+            <h1 className="font-serif text-3xl leading-tight font-semibold m-0">&ldquo;{result.goal}&rdquo;</h1>
           )}
         </header>
 
-        {loading && (
-          <p className={`${cardClass} text-[#5c5346] dark:text-[#c2b89f]`}>Loading plan...</p>
-        )}
+        {loading && <p className={`${cardClass} text-[var(--muted)]`}>Loading plan...</p>}
 
-        {error && (
-          <p className={`${cardClass} text-red-600 dark:text-red-400`}>{error}</p>
-        )}
+        {error && <p className={`${cardClass} text-red-600`}>{error}</p>}
 
         {result && <PlanResults result={result} />}
       </main>
