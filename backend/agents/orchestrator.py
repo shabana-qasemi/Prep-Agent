@@ -34,7 +34,10 @@ def orchestrator_agent(state: MealPrepState) -> dict:
                             "type": "array",
                             "items": {"type": "string", "enum": VALID_STEPS},
                         },
-                        "days": {"type": "integer", "minimum": 1, "maximum": 7},
+                        # Anthropic's structured-output schema validator rejects
+                        # `minimum`/`maximum` on integer properties — enum is the
+                        # supported way to constrain to a fixed range of ints.
+                        "days": {"type": "integer", "enum": [1, 2, 3, 4, 5, 6, 7]},
                     },
                     "required": ["plan", "days"],
                     "additionalProperties": False,
@@ -46,4 +49,4 @@ def orchestrator_agent(state: MealPrepState) -> dict:
     text = next(block.text for block in response.content if block.type == "text")
     data = json.loads(text)
 
-    return {"plan": data["plan"], "days": data["days"]}
+    return {"plan": data["plan"], "days": max(1, min(7, data["days"]))}
