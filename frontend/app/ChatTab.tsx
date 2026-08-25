@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import { Link as LinkIcon, Check, Paperclip, X } from "lucide-react";
 import PlanResults, { cardClass, type PlanResult } from "./PlanResults";
 import ScanResults, { type ScanResult } from "./ScanResults";
+import EditablePhoto from "./EditablePhoto";
 import { extractErrorMessage } from "./apiError";
 import { usePlanHistory } from "./usePlanHistory";
 
@@ -336,7 +336,7 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
         </div>
 
         <div className="relative h-[420px] sm:h-[480px] rounded-[20px] overflow-hidden hidden md:block">
-          <Image src="/hero-meal-prep.jpg" alt="" fill className="object-cover dark:brightness-[0.55] dark:contrast-125" />
+          <EditablePhoto slotId="chat-hero" defaultSrc="/hero-meal-prep.jpg" />
           <div
             className="absolute bottom-5 left-5 right-5 bg-[var(--card)] rounded-2xl px-5 py-4 flex justify-between items-center"
             style={{ boxShadow: "0 12px 32px rgba(20,16,8,0.07)" }}
