@@ -33,6 +33,7 @@ def mealplan_agent(state: MealPrepState) -> dict:
             "timeFrame": "week",
             "targetCalories": target_calories,
         },
+        timeout=20,
     )
     check_response(generate_response, "Spoonacular meal plan generation")
     week = generate_response.json()["week"]
@@ -51,6 +52,7 @@ def mealplan_agent(state: MealPrepState) -> dict:
         info_response = requests.get(
             INFO_URL.format(id=recipe_id),
             params={"apiKey": api_key, "includeNutrition": True},
+            timeout=20,
         )
         check_response(info_response, f"Spoonacular recipe lookup for id {recipe_id}")
         info = info_response.json()

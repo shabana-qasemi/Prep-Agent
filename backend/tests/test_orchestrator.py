@@ -8,12 +8,31 @@ def test_orchestrator_returns_plan_and_days():
     state = MealPrepState(goal="bulking, need 180g protein/day, 5 days")
 
     fake_response = MagicMock()
-    fake_response.content = [MagicMock(type="text", text=json.dumps({"plan": ["macro", "mealplan"], "days": 5}))]
+    fake_response.content = [
+        MagicMock(
+            type="text",
+            text=json.dumps({"is_meal_plan_request": True, "plan": ["macro", "mealplan"], "days": 5}),
+        )
+    ]
 
     with patch("agents.orchestrator.client.messages.create", return_value=fake_response):
         result = orchestrator_agent(state)
 
-    assert result == {"plan": ["macro", "mealplan"], "days": 5}
+    assert result == {"is_meal_plan_request": True, "plan": ["macro", "mealplan"], "days": 5}
+
+
+def test_orchestrator_detects_a_general_question():
+    state = MealPrepState(goal="how much protein should I eat daily?")
+
+    fake_response = MagicMock()
+    fake_response.content = [
+        MagicMock(type="text", text=json.dumps({"is_meal_plan_request": False, "plan": [], "days": 7}))
+    ]
+
+    with patch("agents.orchestrator.client.messages.create", return_value=fake_response):
+        result = orchestrator_agent(state)
+
+    assert result["is_meal_plan_request"] is False
 
 
 def test_orchestrator_clamps_out_of_range_days():
@@ -22,7 +41,9 @@ def test_orchestrator_clamps_out_of_range_days():
     fake_response = MagicMock()
     # A model could still misbehave despite the enum constraint — the clamp
     # is the actual safety net, not the schema alone.
-    fake_response.content = [MagicMock(type="text", text=json.dumps({"plan": [], "days": 14}))]
+    fake_response.content = [
+        MagicMock(type="text", text=json.dumps({"is_meal_plan_request": True, "plan": [], "days": 14}))
+    ]
 
     with patch("agents.orchestrator.client.messages.create", return_value=fake_response):
         result = orchestrator_agent(state)
@@ -38,7 +59,9 @@ def test_orchestrator_schema_never_uses_unsupported_numeric_keywords():
     state = MealPrepState(goal="whatever")
 
     fake_response = MagicMock()
-    fake_response.content = [MagicMock(type="text", text=json.dumps({"plan": [], "days": 1}))]
+    fake_response.content = [
+        MagicMock(type="text", text=json.dumps({"is_meal_plan_request": True, "plan": [], "days": 1}))
+    ]
 
     with patch("agents.orchestrator.client.messages.create", return_value=fake_response) as mock_create:
         orchestrator_agent(state)

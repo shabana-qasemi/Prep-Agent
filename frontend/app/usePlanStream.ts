@@ -9,6 +9,7 @@ const STEP_LABELS: Record<string, string> = {
   budget: "Reviewing your budget...",
   grocery: "Consolidating your grocery list...",
   summary: "Writing your wrap-up...",
+  answer: "Answering your question...",
 };
 
 export function usePlanStream() {

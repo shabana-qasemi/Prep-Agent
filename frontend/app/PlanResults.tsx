@@ -1,6 +1,6 @@
 "use client";
 
-import { Target, UtensilsCrossed, Wallet, ShoppingCart, Sparkles } from "lucide-react";
+import { Target, UtensilsCrossed, Wallet, ShoppingCart, Sparkles, MessageCircle } from "lucide-react";
 import { useMyList } from "./useMyList";
 
 export interface MacroTargets {
@@ -39,6 +39,7 @@ export interface PlanResult {
   budget_notes?: string;
   grocery_list?: string[];
   final_summary?: string;
+  direct_answer?: string;
 }
 
 export const DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -60,10 +61,19 @@ export default function PlanResults({ result }: { result: PlanResult }) {
 
   return (
     <>
-      {result.plan && (
+      {result.plan && result.plan.length > 0 && (
         <p className="text-[13.5px] text-[var(--faint)] -mt-2">
           Orchestrator ran: {result.plan.join(" → ")}
         </p>
+      )}
+
+      {result.direct_answer && (
+        <section className={cardClass}>
+          <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
+            <MessageCircle size={18} /> Answer
+          </h2>
+          <p className="whitespace-pre-wrap m-0 text-[15px] leading-relaxed">{result.direct_answer}</p>
+        </section>
       )}
 
       {result.macro_targets && (
