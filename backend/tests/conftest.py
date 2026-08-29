@@ -2,12 +2,14 @@ import os
 import pytest
 import db
 
-# Every agent constructs a ChatGroq client at import time. Unlike the old
+# Every agent constructs a ChatGroq (or, for the two vision agents,
+# ChatGoogleGenerativeAI) client at import time. Unlike the old
 # anthropic.Anthropic() client (which only validated its key on first real
-# call), LangChain's ChatGroq validates eagerly at construction — so even
+# call), both of these validate eagerly at construction — so even
 # fully-mocked tests need *a* key present, just never a real one, since the
 # actual .invoke()/.with_structured_output() calls are always mocked.
 os.environ.setdefault("GROQ_API_KEY", "test-key-for-pytest")
+os.environ.setdefault("GOOGLE_API_KEY", "test-key-for-pytest")
 
 
 @pytest.fixture(autouse=True)

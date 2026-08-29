@@ -1,15 +1,17 @@
 import base64
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from fastapi import UploadFile
 
 VALID_MEDIA_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
-# llama-3.3-70b-versatile is text-only — photo analysis needs a vision-capable
-# model. Groq's hosted model catalog changes over time, so verify this is
-# still current at https://console.groq.com/docs/models before relying on it.
-vision_llm = ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0)
+# Groq has no vision-capable model at all right now (confirmed by querying
+# their live /models endpoint), so photo analysis uses Gemini instead.
+# gemini-2.5-flash is no longer available to new API keys as of this
+# writing — Google's own API error explicitly points to gemini-3.6-flash,
+# confirmed working (text, structured output, and vision) via live testing.
+vision_llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0)
 
 
 class FoodScanResult(BaseModel):
