@@ -13,9 +13,10 @@ def test_summary_agent_returns_final_summary():
     )
 
     fake_response = MagicMock()
-    fake_response.content = [MagicMock(type="text", text="Great week ahead — you're on track.")]
+    fake_response.content = "Great week ahead — you're on track."
 
-    with patch("agents.summary.client.messages.create", return_value=fake_response):
+    with patch("agents.summary.llm") as mock_llm:
+        mock_llm.invoke.return_value = fake_response
         result = summary_agent(state)
 
     assert result["final_summary"] == "Great week ahead — you're on track."
@@ -28,12 +29,13 @@ def test_summary_agent_prompt_includes_available_context():
     )
 
     fake_response = MagicMock()
-    fake_response.content = [MagicMock(type="text", text="Nice, balanced plan.")]
+    fake_response.content = "Nice, balanced plan."
 
-    with patch("agents.summary.client.messages.create", return_value=fake_response) as mock_create:
+    with patch("agents.summary.llm") as mock_llm:
+        mock_llm.invoke.return_value = fake_response
         summary_agent(state)
 
-    sent_prompt = mock_create.call_args.kwargs["messages"][0]["content"]
+    sent_prompt = mock_llm.invoke.call_args.args[0]
     assert "just eat healthier" in sent_prompt
     assert "2200 kcal" in sent_prompt
     # No meal plan / budget / grocery data was provided — shouldn't be mentioned.

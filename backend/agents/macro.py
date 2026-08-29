@@ -1,43 +1,27 @@
-import json
-import anthropic
+from pydantic import BaseModel
+from langchain_groq import ChatGroq
 from state import MealPrepState
 
-client = anthropic.Anthropic()
+llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+
+
+class MacroTargets(BaseModel):
+    calories: int
+    protein_g: int
+    carbs_g: int
+    fat_g: int
+    notes: str
+
+
+structured_llm = llm.with_structured_output(MacroTargets)
 
 
 def macro_agent(state: MealPrepState) -> dict:
-    response = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=1024,
-        messages=[{
-            "role": "user",
-            "content": (
-                "Based on this person's goal, estimate reasonable daily macro and "
-                "calorie targets. Make sensible assumptions if details are missing, "
-                "and note any assumptions in the 'notes' field.\n\n"
-                f"Goal: \"{state.goal}\""
-            ),
-        }],
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "calories": {"type": "integer"},
-                        "protein_g": {"type": "integer"},
-                        "carbs_g": {"type": "integer"},
-                        "fat_g": {"type": "integer"},
-                        "notes": {"type": "string"},
-                    },
-                    "required": ["calories", "protein_g", "carbs_g", "fat_g", "notes"],
-                    "additionalProperties": False,
-                },
-            }
-        },
+    targets: MacroTargets = structured_llm.invoke(
+        "Based on this person's goal, estimate reasonable daily macro and "
+        "calorie targets. Make sensible assumptions if details are missing, "
+        "and note any assumptions in the 'notes' field.\n\n"
+        f'Goal: "{state.goal}"'
     )
 
-    text = next(block.text for block in response.content if block.type == "text")
-    data = json.loads(text)
-
-    return {"macro_targets": data}
+    return {"macro_targets": targets.model_dump()}

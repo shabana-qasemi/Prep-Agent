@@ -1,7 +1,7 @@
-import anthropic
+from langchain_groq import ChatGroq
 from state import MealPrepState
 
-client = anthropic.Anthropic()
+llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
 
 
 def summary_agent(state: MealPrepState) -> dict:
@@ -25,21 +25,13 @@ def summary_agent(state: MealPrepState) -> dict:
 
     context = "\n\n".join(parts)
 
-    response = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=1024,
-        messages=[{
-            "role": "user",
-            "content": (
-                "Here is a completed meal prep plan generated for a user. Write a short, "
-                "encouraging 2-4 sentence wrap-up: confirm the plan meets their stated goal, "
-                "call out the single most useful actionable tip drawn from the data below "
-                "(a budget swap, a prep-day idea, or a macro insight), and end on one "
-                "motivating note. Don't just repeat numbers already shown elsewhere — synthesize.\n\n"
-                f"{context}"
-            ),
-        }],
+    response = llm.invoke(
+        "Here is a completed meal prep plan generated for a user. Write a short, "
+        "encouraging 2-4 sentence wrap-up: confirm the plan meets their stated goal, "
+        "call out the single most useful actionable tip drawn from the data below "
+        "(a budget swap, a prep-day idea, or a macro insight), and end on one "
+        "motivating note. Don't just repeat numbers already shown elsewhere — synthesize.\n\n"
+        f"{context}"
     )
 
-    text = next(block.text for block in response.content if block.type == "text")
-    return {"final_summary": text}
+    return {"final_summary": response.content}

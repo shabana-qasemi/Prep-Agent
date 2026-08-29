@@ -1,11 +1,28 @@
 import base64
-import json
-import anthropic
+from pydantic import BaseModel
+from langchain_core.messages import HumanMessage
+from langchain_groq import ChatGroq
 from fastapi import UploadFile
 
-client = anthropic.Anthropic()
-
 VALID_MEDIA_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
+# llama-3.3-70b-versatile is text-only — photo analysis needs a vision-capable
+# model. Groq's hosted model catalog changes over time, so verify this is
+# still current at https://console.groq.com/docs/models before relying on it.
+vision_llm = ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0)
+
+
+class FoodScanResult(BaseModel):
+    food_description: str
+    estimated_serving: str
+    calories: int
+    protein_g: int
+    carbs_g: int
+    fat_g: int
+    confidence_note: str
+
+
+structured_vision_llm = vision_llm.with_structured_output(FoodScanResult)
 
 
 async def scan_food_photo(file: UploadFile) -> dict:
@@ -13,61 +30,23 @@ async def scan_food_photo(file: UploadFile) -> dict:
     image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
     media_type = file.content_type if file.content_type in VALID_MEDIA_TYPES else "image/jpeg"
 
-    response = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=1024,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": media_type,
-                        "data": image_b64,
-                    },
-                },
-                {
-                    "type": "text",
-                    "text": (
-                        "Look at this food photo and estimate its nutritional content. "
-                        "Identify the food(s) you see, estimate a reasonable serving size, "
-                        "and give your best estimate of calories, protein, carbs, and fat. "
-                        "In confidence_note, be honest that this is a visual estimate, not a "
-                        "precise measurement, and note anything that makes the estimate less certain "
-                        "(hidden ingredients, unclear portion size, etc.)."
-                    ),
-                },
-            ],
-        }],
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "food_description": {"type": "string"},
-                        "estimated_serving": {"type": "string"},
-                        "calories": {"type": "integer"},
-                        "protein_g": {"type": "integer"},
-                        "carbs_g": {"type": "integer"},
-                        "fat_g": {"type": "integer"},
-                        "confidence_note": {"type": "string"},
-                    },
-                    "required": [
-                        "food_description",
-                        "estimated_serving",
-                        "calories",
-                        "protein_g",
-                        "carbs_g",
-                        "fat_g",
-                        "confidence_note",
-                    ],
-                    "additionalProperties": False,
-                },
-            }
+    message = HumanMessage(content=[
+        {
+            "type": "text",
+            "text": (
+                "Look at this food photo and estimate its nutritional content. "
+                "Identify the food(s) you see, estimate a reasonable serving size, "
+                "and give your best estimate of calories, protein, carbs, and fat. "
+                "In confidence_note, be honest that this is a visual estimate, not a "
+                "precise measurement, and note anything that makes the estimate less certain "
+                "(hidden ingredients, unclear portion size, etc.)."
+            ),
         },
-    )
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:{media_type};base64,{image_b64}"},
+        },
+    ])
 
-    text = next(block.text for block in response.content if block.type == "text")
-    return json.loads(text)
+    result: FoodScanResult = structured_vision_llm.invoke([message])
+    return result.model_dump()

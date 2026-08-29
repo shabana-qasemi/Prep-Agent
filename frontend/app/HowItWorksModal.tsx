@@ -13,11 +13,11 @@ const STEPS = [
   },
   {
     title: "Builds real meals",
-    body: "Pulls actual recipes with real nutrition and pricing data — not invented numbers — and links back to the original recipe for every meal.",
+    body: "Pulls actual recipes — real dishes, real ingredients, linked back to the source — then has AI estimate each one's calories, macros, and cost, since recipe databases don't include that. Clearly labeled as an estimate, not measured data.",
   },
   {
     title: "Checks your budget",
-    body: "Adds up the real cost of the week and suggests specific swaps if you're over what you asked to spend.",
+    body: "Adds up the week's estimated cost and suggests specific swaps if you're over what you asked to spend.",
   },
   {
     title: "Makes your grocery list",

@@ -97,7 +97,8 @@ export default function PlanResults({ result }: { result: PlanResult }) {
             <UtensilsCrossed size={18} /> {Object.keys(result.meal_plan).length}-Day Meal Plan
           </h2>
           <p className="mb-4 text-[12.5px] text-[var(--faint)]">
-            Prices shown are estimated U.S. averages from recipe data — actual cost varies by store, brand, and region.
+            Calories, macros, and prices below are AI-estimated from each recipe&apos;s ingredients — not measured or
+            verified nutrition data, and actual cost varies by store, brand, and region.
           </p>
           <div className="flex flex-col gap-4">
             {DAY_ORDER.filter((day) => result.meal_plan?.[day]).map((day) => {

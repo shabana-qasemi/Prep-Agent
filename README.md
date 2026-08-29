@@ -13,7 +13,7 @@ flowchart TD
     START(["User Goal"]) --> ORCH["Orchestrator Agent<br/>decides which steps are needed"]
     ORCH --> ROUTER{"What's left<br/>in the plan?"}
     ROUTER -->|macro| MACRO["Macro Agent<br/>daily calorie / protein targets"]
-    ROUTER -->|mealplan| MEALPLAN["Meal Plan Agent<br/>7-day plan via Spoonacular"]
+    ROUTER -->|mealplan| MEALPLAN["Meal Plan Agent<br/>7-day plan via TheMealDB"]
     ROUTER -->|budget| BUDGET["Budget Agent<br/>reviews real weekly cost"]
     ROUTER -->|grocery| GROCERY["Grocery Agent<br/>consolidates ingredients"]
     ROUTER -->|done| DONE(["Final Plan Returned"])
@@ -28,11 +28,12 @@ Each box after the Orchestrator is only visited if it's actually relevant to you
 ## Features
 
 - **Dynamic agent orchestration** — built with [LangGraph](https://github.com/langchain-ai/langgraph) conditional routing, not a fixed chain
-- **Real 7-day meal plans** — sourced from the [Spoonacular](https://spoonacular.com/food-api) API, with real prices, macros, and ingredient lists per recipe
-- **Budget-aware** — the Budget Agent reviews the plan's *actual* weekly cost against any budget you mention, and flags incomplete or missing data instead of guessing
+- **Real 7-day meal plans** — real recipes sourced from [TheMealDB](https://www.themealdb.com/api.php), with AI-estimated macros and pricing per recipe (clearly labeled as estimates, since recipe databases don't include nutrition/cost data)
+- **Budget-aware** — the Budget Agent reviews the plan's estimated weekly cost against any budget you mention, and flags incomplete or missing data instead of guessing
 - **Consolidated grocery list** — deduplicated across the full week
 - **Real recipe sourcing** — every recipe links back to its original source, no fabricated attribution
 - **Dark mode + luxury UI** — Next.js, Tailwind, custom theming with persisted preference
+- **100% free to run** — no paid API keys required; Groq's free tier powers every LLM call, TheMealDB's public endpoints need no key at all
 
 ## Tech Stack
 
@@ -40,8 +41,8 @@ Each box after the Orchestrator is only visited if it's actually relevant to you
 |---|---|
 | Frontend | Next.js (App Router), React, Tailwind CSS, TypeScript |
 | Backend | Python, FastAPI |
-| Agent Orchestration | LangGraph, Anthropic Claude API |
-| Recipe & Nutrition Data | Spoonacular API |
+| Agent Orchestration | LangGraph, Groq (Llama 3.3 70B via `langchain-groq`) |
+| Recipe Data | TheMealDB (free, keyless) |
 
 ## Getting Started
 
@@ -49,7 +50,7 @@ Each box after the Orchestrator is only visited if it's actually relevant to you
 
 - Python 3.9+
 - Node.js 18+
-- API keys: [Anthropic](https://console.anthropic.com) and [Spoonacular](https://spoonacular.com/food-api)
+- A free [Groq API key](https://console.groq.com/keys) — no payment info required. TheMealDB needs no key at all.
 
 ### Backend
 
@@ -79,7 +80,7 @@ backend/
   agents/
     orchestrator.py   # decides which steps are needed
     macro.py           # daily calorie/macro targets
-    mealplan.py         # 7-day meal plan via Spoonacular
+    mealplan.py         # 7-day meal plan via TheMealDB + AI-estimated macros/price
     budget.py           # reviews real weekly cost
     grocery.py           # consolidates ingredients
   state.py             # shared state schema (Pydantic)
@@ -101,6 +102,6 @@ frontend/
 
 - [ ] Real-time progress streaming as each agent runs
 - [ ] Shareable plan links (persistent storage)
-- [ ] Photo-based food scanning (Claude vision)
+- [x] Photo-based food scanning (Groq vision)
 - [ ] Automated tests for agents and routing logic
 - [ ] Live deployment

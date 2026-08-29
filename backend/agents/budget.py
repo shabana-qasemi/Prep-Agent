@@ -1,7 +1,7 @@
-import anthropic
+from langchain_groq import ChatGroq
 from state import MealPrepState
 
-client = anthropic.Anthropic()
+llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
 
 
 def budget_agent(state: MealPrepState) -> dict:
@@ -17,22 +17,14 @@ def budget_agent(state: MealPrepState) -> dict:
 
     plan_summary = "\n".join(day_summaries)
 
-    response = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=2048,
-        messages=[{
-            "role": "user",
-            "content": (
-                "Here is the user's goal (which may mention a budget) and their "
-                "7-day meal plan with each day's real cost. Assess whether the "
-                "full week fits within any stated budget, and suggest specific "
-                "swaps for the most expensive days if it doesn't.\n\n"
-                f"Goal: \"{state.goal}\"\n\n"
-                f"Total weekly cost: ${total_cost:.2f}\n\n"
-                f"Daily breakdown:\n{plan_summary}"
-            ),
-        }],
+    response = llm.invoke(
+        "Here is the user's goal (which may mention a budget) and their "
+        "7-day meal plan with each day's real cost. Assess whether the "
+        "full week fits within any stated budget, and suggest specific "
+        "swaps for the most expensive days if it doesn't.\n\n"
+        f'Goal: "{state.goal}"\n\n'
+        f"Total weekly cost: ${total_cost:.2f}\n\n"
+        f"Daily breakdown:\n{plan_summary}"
     )
 
-    notes = next(block.text for block in response.content if block.type == "text")
-    return {"budget_notes": notes}
+    return {"budget_notes": response.content}

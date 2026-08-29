@@ -19,10 +19,11 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Run tests
         env:
-          # Dummy key so agents.*'s module-level anthropic.Anthropic() clients
-          # construct successfully — every test mocks the actual API calls,
-          # so this key is never used to make a real, billable request.
-          ANTHROPIC_API_KEY: sk-ci-dummy-key
+          # Dummy key so agents.*'s module-level ChatGroq clients construct
+          # successfully — every test mocks the actual .invoke() calls, so
+          # this key is never used to make a real request. conftest.py also
+          # sets a fallback, so this is redundant but kept explicit here too.
+          GROQ_API_KEY: gsk-ci-dummy-key
         # `python -m pytest` (not bare `pytest`) so the backend directory
         # itself lands on sys.path — otherwise `import db` etc. fail here
         # even though they work locally where a stale sys.path lingers.

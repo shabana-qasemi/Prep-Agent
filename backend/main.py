@@ -39,11 +39,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Every /api/plan and /api/scan call spends real Anthropic + Spoonacular
-# credits, so if this ever goes live we cap each IP to a small number of
-# generations per day. This is a soft limit, not abuse-proof (an attacker
-# behind a proxy or VPN can rotate IPs) — it only exists to stop *accidental*
-# runaway cost from normal traffic, not to be a security boundary.
+# No paid APIs are in play anymore (Groq's free tier + TheMealDB's free,
+# keyless endpoints), but both still have rate limits of their own, and this
+# cap keeps normal traffic well under them. It's a soft limit, not
+# abuse-proof (an attacker behind a proxy or VPN can rotate IPs) — it only
+# exists to stop *accidental* runaway usage, not to be a security boundary.
 DAILY_REQUEST_LIMIT = int(os.environ.get("DAILY_REQUEST_LIMIT", "5"))
 
 
