@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Moon, Sun, ShoppingCart } from "lucide-react";
 import ChatTab from "./ChatTab";
 import ExampleTab from "./ExampleTab";
@@ -32,6 +32,21 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [prefillGoal, setPrefillGoal] = useState<string | null>(null);
   const { items: myListItems } = useMyList();
+
+  const tabRefs = useRef<Record<TabKey, HTMLButtonElement | null>>({
+    chat: null,
+    example: null,
+    manual: null,
+    pantry: null,
+    menu: null,
+    progress: null,
+  });
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = tabRefs.current[activeTab];
+    if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
+  }, [activeTab]);
 
   useEffect(() => {
     const stored = localStorage.getItem("theme");
@@ -73,20 +88,30 @@ export default function Home() {
           Prep-Agent
         </span>
 
-        <div className="flex flex-nowrap overflow-x-auto gap-4 text-xs font-semibold uppercase tracking-wider min-w-0">
+        <div className="relative flex flex-nowrap overflow-x-auto gap-4 text-xs font-semibold uppercase tracking-wider min-w-0">
           {TABS.map((tab) => (
             <button
               key={tab.key}
+              ref={(el) => {
+                tabRefs.current[tab.key] = el;
+              }}
               onClick={() => setActiveTab(tab.key)}
-              className={`bg-none border-none cursor-pointer whitespace-nowrap shrink-0 transition-colors pb-1 border-b-2 ${
+              className={`bg-none border-none cursor-pointer whitespace-nowrap shrink-0 pb-1 border-b-2 border-transparent transition-colors duration-200 ${
                 activeTab === tab.key
-                  ? "text-[var(--text)] border-[var(--accent)]"
-                  : "text-[var(--faint)] border-transparent hover:text-[var(--muted)]"
+                  ? "text-[var(--text)]"
+                  : "text-[var(--faint)] hover:text-[var(--muted)]"
               }`}
             >
               {tab.label}
             </button>
           ))}
+          {indicator && (
+            <span
+              aria-hidden
+              className="absolute bottom-0 h-[2px] rounded-full transition-[left,width] duration-300 ease-out"
+              style={{ left: indicator.left, width: indicator.width, background: "var(--accent)" }}
+            />
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -122,23 +147,25 @@ export default function Home() {
         {/* Every tab stays mounted the whole time — only visually hidden when
             inactive — so switching tabs never wipes an in-progress or
             completed generation. A naive `{active && <Tab/>}` would unmount
-            and destroy each tab's state the moment you looked away from it. */}
-        <div style={{ display: activeTab === "chat" ? "block" : "none" }}>
+            and destroy each tab's state the moment you looked away from it.
+            The fade-up animation restarts automatically whenever `display`
+            flips from none back to block/flex — no extra JS needed for that. */}
+        <div style={{ display: activeTab === "chat" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <ChatTab prefillGoal={prefillGoal} onPrefillConsumed={() => setPrefillGoal(null)} />
         </div>
-        <div style={{ display: activeTab === "example" ? "block" : "none" }}>
+        <div style={{ display: activeTab === "example" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <ExampleTab />
         </div>
-        <div style={{ display: activeTab === "manual" ? "block" : "none" }}>
+        <div style={{ display: activeTab === "manual" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <ManualEntryTab />
         </div>
-        <div style={{ display: activeTab === "pantry" ? "block" : "none" }}>
+        <div style={{ display: activeTab === "pantry" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <PantryTab />
         </div>
-        <div style={{ display: activeTab === "menu" ? "block" : "none" }}>
+        <div style={{ display: activeTab === "menu" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <MenuDecoderTab />
         </div>
-        <div style={{ display: activeTab === "progress" ? "block" : "none" }}>
+        <div style={{ display: activeTab === "progress" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <ProgressTrackerTab />
         </div>
       </main>
