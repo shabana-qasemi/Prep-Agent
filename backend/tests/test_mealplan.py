@@ -1,6 +1,6 @@
 from unittest.mock import patch, MagicMock
 from state import MealPrepState
-from agents.mealplan import mealplan_agent, MealEstimates, MealEstimate
+from agents.mealplan import mealplan_agent, MealEstimate
 from db import init_db, cache_recipe
 
 
@@ -19,8 +19,7 @@ def _fake_detail(meal_id: str, title: str) -> dict:
     }
 
 
-def _fake_estimate(meal_id: str) -> MealEstimate:
-    return MealEstimate(id=meal_id, calories=500, protein_g=40, carbs_g=50, fat_g=15, price_per_serving=3.5)
+_FAKE_ESTIMATE = MealEstimate(calories=500, protein_g=40, carbs_g=50, fat_g=15, price_per_serving=3.5)
 
 
 def test_mealplan_http_calls_always_set_a_timeout():
@@ -41,7 +40,7 @@ def test_mealplan_http_calls_always_set_a_timeout():
 
     with patch("agents.mealplan.requests.get", side_effect=fake_get) as mock_get, \
          patch("agents.mealplan.structured_estimate_llm") as mock_llm:
-        mock_llm.invoke.return_value = MealEstimates(estimates=[_fake_estimate("1")])
+        mock_llm.invoke.return_value = _FAKE_ESTIMATE
         mealplan_agent(state)
 
     assert mock_get.call_count > 0
@@ -64,10 +63,54 @@ def test_mealplan_truncates_to_requested_days():
 
     with patch("agents.mealplan.requests.get", side_effect=fake_get), \
          patch("agents.mealplan.structured_estimate_llm") as mock_llm:
-        mock_llm.invoke.return_value = MealEstimates(estimates=[_fake_estimate("1")])
+        mock_llm.invoke.return_value = _FAKE_ESTIMATE
         result = mealplan_agent(state)
 
     assert list(result["meal_plan"].keys()) == ["monday", "tuesday"]
+
+
+def test_mealplan_estimates_one_recipe_per_call_not_batched():
+    # Regression guard: batching several recipes into one JSON response
+    # consistently failed schema validation during live testing (the model
+    # can't reliably produce one big correctly-shaped blob). Estimating must
+    # happen one recipe at a time.
+    init_db()
+    state = MealPrepState(goal="bulk", days=1)
+
+    fake_filter_response = MagicMock(ok=True)
+    fake_filter_response.json.return_value = {"meals": [{"idMeal": "1"}]}
+
+    def fake_lookup(meal_id, title):
+        response = MagicMock(ok=True)
+        response.json.return_value = {"meals": [_fake_detail(meal_id, title)]}
+        return response
+
+    # 3 distinct meal slots (breakfast/lunch/dinner) for 1 day -> 3 unique ids
+    lookup_responses = {
+        "1": fake_lookup("1", "Meal One"),
+        "2": fake_lookup("2", "Meal Two"),
+        "3": fake_lookup("3", "Meal Three"),
+    }
+
+    call_count = {"filter": 0}
+
+    def fake_get(url, params=None, timeout=None):
+        if "filter.php" in url:
+            call_count["filter"] += 1
+            meal_id = str(call_count["filter"])
+            return MagicMock(ok=True, json=lambda: {"meals": [{"idMeal": meal_id}]})
+        return lookup_responses[params["i"]]
+
+    with patch("agents.mealplan.requests.get", side_effect=fake_get), \
+         patch("agents.mealplan.structured_estimate_llm") as mock_llm:
+        mock_llm.invoke.return_value = _FAKE_ESTIMATE
+        mealplan_agent(state)
+
+    # One estimate call per unique recipe, never one call for all of them.
+    assert mock_llm.invoke.call_count == 3
+    for call in mock_llm.invoke.call_args_list:
+        prompt = call.args[0]
+        assert prompt.count("title:") == 1
 
 
 def test_mealplan_skips_estimation_for_already_cached_recipes():

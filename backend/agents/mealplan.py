@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from langchain_groq import ChatGroq
 from state import MealPrepState
 from db import get_cached_recipe, cache_recipe
+from llm_utils import retry_on_bad_structured_output
 
 BASE_URL = "https://www.themealdb.com/api/json/v1/1"
 FILTER_URL = f"{BASE_URL}/filter.php"
@@ -13,7 +14,7 @@ DAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
 BREAKFAST_CATEGORY = "Breakfast"
 MAIN_CATEGORIES = ["Chicken", "Beef", "Seafood", "Vegetarian", "Pasta", "Pork"]
 
-llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
 
 
 def check_response(response: requests.Response, context: str) -> None:
@@ -48,7 +49,6 @@ def extract_ingredients(detail: dict) -> list[str]:
 
 
 class MealEstimate(BaseModel):
-    id: str
     calories: int
     protein_g: int
     carbs_g: int
@@ -56,45 +56,38 @@ class MealEstimate(BaseModel):
     price_per_serving: float
 
 
-class MealEstimates(BaseModel):
-    estimates: list[MealEstimate]
+# json_mode, not the default tool-calling method — see orchestrator.py for
+# why. Estimating is also done one recipe at a time, not batched: batching
+# several recipes (especially ones with 15+ ingredients) into one JSON
+# response consistently failed validation during live testing — the model
+# just can't reliably produce one big, correctly-shaped blob. One recipe per
+# call is far more reliable, and Groq's free tier has room for it.
+structured_estimate_llm = llm.with_structured_output(MealEstimate, method="json_mode")
 
 
-structured_estimate_llm = llm.with_structured_output(MealEstimates)
+@retry_on_bad_structured_output
+def _estimate_one(prompt: str) -> MealEstimate:
+    return structured_estimate_llm.invoke(prompt)
 
 
 def estimate_nutrition_and_price(recipes: dict[str, dict]) -> dict[str, MealEstimate]:
     """TheMealDB has no nutrition or pricing data at all — these are
     AI-estimated from each recipe's title and ingredients, not measured or
     verified. The frontend labels them accordingly."""
-    listing = "\n\n".join(
-        f"id: {recipe_id}\ntitle: {r['title']}\ningredients: {', '.join(r['ingredients']) or 'unknown'}"
-        for recipe_id, r in recipes.items()
-    )
-
-    result: MealEstimates = structured_estimate_llm.invoke(
-        "For each recipe below, estimate realistic values for a single serving: "
-        "calories, protein_g, carbs_g, fat_g, and price_per_serving (USD, a rough "
-        "US grocery-cost estimate for the ingredients divided by servings). Base "
-        "it on typical preparation of that dish and its listed ingredients. "
-        "Return one estimate per recipe id, using the exact id given.\n\n"
-        f"{listing}"
-    )
-    return {e.id: e for e in result.estimates}
-
-
-def get_or_build_recipe(meal_id: str, raw_detail_cache: dict[str, dict]) -> dict:
-    cached = get_cached_recipe(int(meal_id))
-    if cached is not None:
-        return cached
-
-    detail = raw_detail_cache[meal_id]
-    return {
-        "title": detail.get("strMeal"),
-        "image": detail.get("strMealThumb"),
-        "source_url": detail.get("strSource") or None,
-        "ingredients": extract_ingredients(detail),
-    }
+    estimates = {}
+    for recipe_id, r in recipes.items():
+        ingredients = ", ".join(r["ingredients"]) or "unknown"
+        estimates[recipe_id] = _estimate_one(
+            "Estimate realistic values for a single serving of this recipe: "
+            "calories, protein_g, carbs_g, fat_g, and price_per_serving (USD, a "
+            "rough US grocery-cost estimate for the ingredients divided by "
+            "servings). Base it on typical preparation of this dish and its "
+            "listed ingredients.\n\n"
+            f"title: {r['title']}\ningredients: {ingredients}\n\n"
+            "Respond with JSON matching this shape: "
+            '{"calories": int, "protein_g": int, "carbs_g": int, "fat_g": int, "price_per_serving": float}'
+        )
+    return estimates
 
 
 def mealplan_agent(state: MealPrepState) -> dict:

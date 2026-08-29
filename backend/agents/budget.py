@@ -1,7 +1,7 @@
 from langchain_groq import ChatGroq
 from state import MealPrepState
 
-llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
+llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
 
 
 def budget_agent(state: MealPrepState) -> dict:
