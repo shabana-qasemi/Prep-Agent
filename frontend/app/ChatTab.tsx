@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Link as LinkIcon, Check, Paperclip, X } from "lucide-react";
+import { Link as LinkIcon, Check, Paperclip, X, Plus } from "lucide-react";
 import PlanResults, { cardClass, type PlanResult } from "./PlanResults";
 import ScanResults, { type ScanResult } from "./ScanResults";
 import EditablePhoto from "./EditablePhoto";
 import { extractErrorMessage } from "./apiError";
-import { usePlanHistory } from "./usePlanHistory";
+import { useVisitorId } from "./useVisitorId";
 
 const STEPS = ["orchestrator", "macro", "mealplan", "budget", "grocery", "summary"];
 const STEP_LABELS: Record<string, string> = {
@@ -35,15 +35,26 @@ const EXAMPLE_PROMPTS = [
   "Vegetarian meal prep for the week",
 ];
 
+interface ChatMessage {
+  role: "user" | "assistant";
+  text: string;
+  result?: PlanResult;
+  planId?: string | null;
+}
+
 interface ChatTabProps {
   prefillGoal?: string | null;
   onPrefillConsumed?: () => void;
+  resumeConversationId?: string | null;
+  onResumeConsumed?: () => void;
 }
 
-export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps) {
+export default function ChatTab({ prefillGoal, onPrefillConsumed, resumeConversationId, onResumeConsumed }: ChatTabProps) {
+  const visitorId = useVisitorId();
   const [goal, setGoal] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<PlanResult | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,9 +64,8 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { entries: history, record } = usePlanHistory();
 
-  const hasStarted = result !== null || scanResult !== null || loading;
+  const hasStarted = messages.length > 0 || scanResult !== null || loading;
 
   useEffect(() => {
     if (prefillGoal) {
@@ -67,6 +77,48 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillGoal]);
+
+  // Loading a past chat from the history panel: fetch its full transcript,
+  // and for any assistant turn that produced a plan, fetch that plan too so
+  // the meal plan / grocery list render exactly as they did originally.
+  useEffect(() => {
+    if (!resumeConversationId) return;
+
+    async function loadConversation(id: string) {
+      setLoading(true);
+      setError(null);
+      setScanResult(null);
+      try {
+        const res = await fetch(`http://localhost:8000/api/conversations/${id}/messages`);
+        if (!res.ok) throw new Error("Couldn't load that chat.");
+        const rows: { role: "user" | "assistant"; text: string; plan_id: string | null }[] = await res.json();
+
+        const loaded = await Promise.all(
+          rows.map(async (row): Promise<ChatMessage> => {
+            if (row.role === "assistant" && row.plan_id) {
+              const planRes = await fetch(`http://localhost:8000/api/plan/${row.plan_id}`);
+              const result: PlanResult | undefined = planRes.ok ? await planRes.json() : undefined;
+              return { role: "assistant", text: row.text, result, planId: row.plan_id };
+            }
+            return { role: row.role, text: row.text };
+          })
+        );
+
+        setMessages(loaded);
+        setConversationId(id);
+        const lastPlan = [...loaded].reverse().find((m) => m.planId)?.planId ?? null;
+        setPlanId(lastPlan);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't load that chat.");
+      } finally {
+        setLoading(false);
+        onResumeConsumed?.();
+      }
+    }
+
+    loadConversation(resumeConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeConversationId]);
 
   function resizeTextarea() {
     const el = textareaRef.current;
@@ -99,20 +151,30 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  async function runPlan(goalText: string) {
+  function startNewChat() {
+    setMessages([]);
+    setConversationId(null);
+    setPlanId(null);
+    setError(null);
+    setScanResult(null);
+    setCopied(false);
+  }
+
+  async function sendMessage(goalText: string) {
     setLoading(true);
     setError(null);
     setScanResult(null);
-    setResult({ goal: goalText });
-    setPlanId(null);
-    setCopied(false);
     setCurrentStep(null);
+    setMessages((prev) => [...prev, { role: "user", text: goalText }]);
+
+    let turnResult: PlanResult = { goal: goalText };
+    let turnPlanId: string | null = null;
 
     try {
       const res = await fetch("http://localhost:8000/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal: goalText }),
+        body: JSON.stringify({ goal: goalText, visitor_id: visitorId, conversation_id: conversationId }),
       });
 
       if (!res.ok || !res.body) {
@@ -131,27 +193,41 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
         // Network reads can split one SSE message across multiple chunks, or
         // bundle several together — buffer and split on the blank-line delimiter.
         buffer += decoder.decode(value, { stream: true });
-        const messages = buffer.split("\n\n");
-        buffer = messages.pop() || "";
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() || "";
 
-        for (const message of messages) {
-          if (!message.startsWith("data: ")) continue;
-          const event = JSON.parse(message.slice(6));
+        for (const chunk of chunks) {
+          if (!chunk.startsWith("data: ")) continue;
+          const event = JSON.parse(chunk.slice(6));
 
           if (event.step === "error") {
             throw new Error(event.message);
           }
           if (event.step === "done") {
             setCurrentStep(null);
-            if (event.plan_id) setPlanId(event.plan_id);
+            if (event.plan_id) turnPlanId = event.plan_id;
+            if (event.conversation_id) setConversationId(event.conversation_id);
             continue;
           }
 
           setCurrentStep(event.step);
-          setResult((prev) => ({ ...(prev as PlanResult), ...event.data }));
+          turnResult = { ...turnResult, ...event.data };
         }
       }
-      record(goalText);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: turnResult.direct_answer || turnResult.final_summary || "",
+          result: turnResult,
+          planId: turnPlanId,
+        },
+      ]);
+      if (turnPlanId) {
+        setPlanId(turnPlanId);
+        setCopied(false);
+      }
     } catch (err) {
       console.error("Plan request failed:", err);
       setError(err instanceof Error ? err.message : "Something went wrong while generating your plan.");
@@ -165,8 +241,6 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
     if (!attachedFile) return;
     setLoading(true);
     setError(null);
-    setResult(null);
-    setPlanId(null);
     setScanResult(null);
 
     try {
@@ -197,7 +271,10 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
     if (attachedFile) {
       handleAnalyzePhoto();
     } else if (goal.trim()) {
-      runPlan(goal);
+      const goalText = goal;
+      setGoal("");
+      requestAnimationFrame(resizeTextarea);
+      sendMessage(goalText);
     }
   }
 
@@ -214,7 +291,9 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
       : "Analyze Photo"
     : loading
       ? "Building your plan..."
-      : "Build My Plan";
+      : messages.length > 0
+        ? "Send"
+        : "Build My Plan";
 
   const submitButtonStyle: React.CSSProperties = {
     width: "100%",
@@ -253,7 +332,11 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
         ref={textareaRef}
         value={goal}
         onChange={handleGoalChange}
-        placeholder="e.g. I'm bulking, need 180g protein/day, budget $60/week"
+        placeholder={
+          messages.length > 0
+            ? "Ask a follow-up — e.g. \"make it cheaper\" or \"swap Tuesday's dinner\""
+            : "e.g. I'm bulking, need 180g protein/day, budget $60/week"
+        }
         rows={1}
         className="resize-none overflow-hidden border-[1.5px] border-[var(--text)] rounded-[10px] px-5 py-4 text-[15px] leading-relaxed bg-[var(--input)] text-[var(--text)] transition-[height,border-color] duration-150 ease-out focus:outline-none focus:border-[var(--accent)]"
       />
@@ -309,21 +392,6 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
             ))}
           </div>
 
-          {history.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <span className="text-xs font-semibold text-[var(--faint)] uppercase tracking-wider">Recent:</span>
-              {history.map((h) => (
-                <button
-                  key={h.at}
-                  onClick={() => runPlan(h.goal)}
-                  className="text-[12.5px] px-3 py-1.5 rounded-full border border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
-                >
-                  {h.goal.length > 34 ? `${h.goal.slice(0, 34)}…` : h.goal}
-                </button>
-              ))}
-            </div>
-          )}
-
           <div className="flex gap-7 mt-1">
             <div>
               <div className="font-serif text-[23px] font-semibold">$54.60</div>
@@ -338,7 +406,7 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
         </div>
 
         <div className="relative h-[420px] sm:h-[480px] rounded-[20px] overflow-hidden hidden md:block">
-          <EditablePhoto slotId="chat-hero" defaultSrc="/hero-meal-prep.jpg" />
+          <EditablePhoto slotId="chat-hero" defaultSrc="/hero-meal-prep-spread.jpg" />
           <div
             className="absolute bottom-5 left-5 right-5 bg-[var(--card)] rounded-2xl px-5 py-4 flex justify-between items-center"
             style={{ boxShadow: "0 12px 32px rgba(20,16,8,0.07)" }}
@@ -361,6 +429,49 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
   return (
     <div className="flex flex-col gap-5 max-w-[720px] mx-auto pt-11">
       {inputCard}
+
+      <div className="flex items-center justify-between -mt-2">
+        {planId ? (
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center gap-2 text-sm hover:underline bg-none border-none cursor-pointer"
+            style={{ color: "var(--accent)" }}
+          >
+            {copied ? <Check size={14} /> : <LinkIcon size={14} />}
+            {copied ? "Link copied!" : "Copy shareable link"}
+          </button>
+        ) : (
+          <span />
+        )}
+        {messages.length > 0 && (
+          <button
+            onClick={startNewChat}
+            className="flex items-center gap-1.5 text-sm text-[var(--faint)] hover:text-[var(--accent)] bg-none border-none cursor-pointer"
+          >
+            <Plus size={14} /> New chat
+          </button>
+        )}
+      </div>
+
+      {messages.map((msg, i) =>
+        msg.role === "user" ? (
+          <div
+            key={i}
+            className="self-end max-w-[85%] rounded-2xl px-4 py-3 text-[14.5px] leading-relaxed"
+            style={{ background: "var(--text)", color: "var(--bg)" }}
+          >
+            {msg.text}
+          </div>
+        ) : msg.result ? (
+          <div key={i} className="flex flex-col gap-4">
+            <PlanResults result={msg.result} planId={msg.planId} />
+          </div>
+        ) : (
+          <div key={i} className={`${cardClass} text-[14.5px] leading-relaxed`}>
+            {msg.text}
+          </div>
+        )
+      )}
 
       {loading && (
         <div className={`${cardClass} flex flex-col gap-3.5`} style={{ animation: "pa-fade-up .3s ease" }}>
@@ -419,18 +530,6 @@ export default function ChatTab({ prefillGoal, onPrefillConsumed }: ChatTabProps
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
-      {planId && (
-        <button
-          onClick={handleCopyLink}
-          className="flex items-center gap-2 self-start text-sm -mt-2 hover:underline bg-none border-none cursor-pointer"
-          style={{ color: "var(--accent)" }}
-        >
-          {copied ? <Check size={14} /> : <LinkIcon size={14} />}
-          {copied ? "Link copied!" : "Copy shareable link"}
-        </button>
-      )}
-
-      {result && !loading && <PlanResults result={result} />}
       {scanResult && <ScanResults result={scanResult} />}
     </div>
   );

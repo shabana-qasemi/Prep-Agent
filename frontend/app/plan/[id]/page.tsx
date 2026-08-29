@@ -44,7 +44,7 @@ export default function SharedPlanPage() {
 
         {error && <p className={`${cardClass} text-red-600`}>{error}</p>}
 
-        {result && <PlanResults result={result} />}
+        {result && <PlanResults result={result} planId={params.id} />}
       </main>
     </div>
   );

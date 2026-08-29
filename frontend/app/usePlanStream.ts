@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PlanResult } from "./PlanResults";
 import { extractErrorMessage } from "./apiError";
+import { useVisitorId } from "./useVisitorId";
 
 const STEP_LABELS: Record<string, string> = {
   orchestrator: "Deciding what your goal needs...",
@@ -13,6 +14,7 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 export function usePlanStream() {
+  const visitorId = useVisitorId();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PlanResult | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function usePlanStream() {
       const res = await fetch("http://localhost:8000/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal }),
+        body: JSON.stringify({ goal, visitor_id: visitorId }),
       });
 
       if (!res.ok || !res.body) {

@@ -21,7 +21,7 @@ const PRESETS: Preset[] = [
     title: "Lean bulk on a budget",
     subtitle: "Bulking, 180g protein/day, $60/week budget",
     goal: "Bulking, 180g protein/day, $60/week budget",
-    image: "/hero-protein-bowl.jpg",
+    image: "/meal-protein-bowl.jpg",
   },
   {
     id: "cutting",
@@ -29,6 +29,7 @@ const PRESETS: Preset[] = [
     title: "Fast cut, no red meat",
     subtitle: "Cutting, no red meat, high protein",
     goal: "Cutting, no red meat, high protein",
+    image: "/meal-lunch-containers.jpg",
   },
   {
     id: "vegetarian",
@@ -36,6 +37,7 @@ const PRESETS: Preset[] = [
     title: "Vegetarian week",
     subtitle: "Vegetarian meal prep for the week",
     goal: "Vegetarian meal prep for the week",
+    image: "/meal-tofu-veggie-bowl.jpg",
   },
   {
     id: "general-health",
@@ -43,7 +45,7 @@ const PRESETS: Preset[] = [
     title: "Just eat better",
     subtitle: "I just want to eat better this week",
     goal: "I just want to eat better this week",
-    image: "/hero-meal-prep.jpg",
+    image: "/meal-grilled-chicken-salad.jpg",
   },
   {
     id: "family",
@@ -51,6 +53,7 @@ const PRESETS: Preset[] = [
     title: "Family-size batch cook",
     subtitle: "Batch cook meals for a family of 4, budget $120/week",
     goal: "Batch cook meals for a family of 4, budget $120/week",
+    image: "/meal-cheesy-bean-bake.jpg",
   },
   {
     id: "busy-schedule",
@@ -58,6 +61,7 @@ const PRESETS: Preset[] = [
     title: "High-protein on the go",
     subtitle: "Quick grab-and-go high-protein meals for a busy week",
     goal: "Quick grab-and-go high-protein meals for a busy week",
+    image: "/hero-meal-prep-spread.jpg",
   },
   {
     id: "performance",
@@ -65,6 +69,7 @@ const PRESETS: Preset[] = [
     title: "Post-workout recovery",
     subtitle: "Meals optimized for muscle recovery after training",
     goal: "Meals optimized for muscle recovery after training",
+    image: "/meal-protein-bowl.jpg",
   },
   {
     id: "budget",
@@ -72,6 +77,7 @@ const PRESETS: Preset[] = [
     title: "Tight student budget",
     subtitle: "Cheap, filling meals on a $35/week student budget",
     goal: "Cheap, filling meals on a $35/week student budget",
+    image: "/meal-cheesy-bean-bake.jpg",
   },
   {
     id: "sustainable",
@@ -79,6 +85,7 @@ const PRESETS: Preset[] = [
     title: "Zero food waste week",
     subtitle: "Plan meals that use up everything, minimal waste",
     goal: "Plan meals that use up everything, minimal waste",
+    image: "/meal-zero-waste.jpg",
   },
 ];
 
@@ -157,7 +164,7 @@ export default function ExampleTab() {
 
       {result && !loading && (
         <div className="flex flex-col gap-4 max-w-[720px] mx-auto w-full" style={{ animation: "pa-fade-up .4s ease" }}>
-          <PlanResults result={result} />
+          <PlanResults result={result} planId={planId} />
         </div>
       )}
     </div>

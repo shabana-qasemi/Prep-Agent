@@ -67,7 +67,7 @@ export default function PantryTab() {
     <div className="flex flex-col gap-7 pt-11">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-center">
         <div className="relative h-[280px] sm:h-[380px] rounded-[20px] overflow-hidden hidden md:block">
-          <EditablePhoto slotId="pantry-hero" defaultSrc="/hero-protein-bowl.jpg" />
+          <EditablePhoto slotId="pantry-hero" defaultSrc="/hero-pantry.jpg" />
           <div
             className="absolute top-4 left-4 bg-[var(--card)] rounded-2xl px-3.5 py-1.5 text-[12.5px] font-bold"
             style={{ boxShadow: "0 2px 10px rgba(20,16,8,0.04)" }}

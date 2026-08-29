@@ -1,7 +1,9 @@
 "use client";
 
-import { Target, UtensilsCrossed, Wallet, ShoppingCart, Sparkles, MessageCircle } from "lucide-react";
+import { useState } from "react";
+import { Target, UtensilsCrossed, Wallet, ShoppingCart, Sparkles, MessageCircle, RefreshCw } from "lucide-react";
 import { useMyList } from "./useMyList";
+import { extractErrorMessage } from "./apiError";
 
 export interface MacroTargets {
   calories: number;
@@ -12,6 +14,7 @@ export interface MacroTargets {
 }
 
 export interface Meal {
+  id?: number;
   title: string;
   calories: number;
   protein_g: number;
@@ -38,6 +41,7 @@ export interface PlanResult {
   meal_plan?: Record<string, DayPlan>;
   budget_notes?: string;
   grocery_list?: string[];
+  grocery_categories?: Record<string, string[]>;
   final_summary?: string;
   direct_answer?: string;
 }
@@ -56,8 +60,52 @@ function exportGroceryList(items: string[]) {
   URL.revokeObjectURL(url);
 }
 
-export default function PlanResults({ result }: { result: PlanResult }) {
+interface SwapResponse {
+  day: string;
+  meal_plan_day: DayPlan;
+  grocery_list: string[];
+  grocery_categories: Record<string, string[]>;
+}
+
+// planId is optional — a shared/read-only plan view or a preset-tab result
+// that hasn't been persisted yet simply won't get swap buttons.
+export default function PlanResults({ result, planId }: { result: PlanResult; planId?: string | null }) {
   const { items: myListItems, isChecked, toggle } = useMyList();
+  const [dayOverrides, setDayOverrides] = useState<Record<string, DayPlan>>({});
+  const [groceryOverride, setGroceryOverride] = useState<{ list: string[]; categories?: Record<string, string[]> } | null>(null);
+  const [swappingKey, setSwappingKey] = useState<string | null>(null);
+  const [swapError, setSwapError] = useState<string | null>(null);
+
+  const mealPlan = result.meal_plan
+    ? { ...result.meal_plan, ...dayOverrides }
+    : result.meal_plan;
+  const groceryList = groceryOverride?.list ?? result.grocery_list;
+  const groceryCategories = groceryOverride?.categories ?? result.grocery_categories;
+
+  async function handleSwap(day: string, mealIndex: number) {
+    if (!planId) return;
+    const key = `${day}-${mealIndex}`;
+    setSwappingKey(key);
+    setSwapError(null);
+    try {
+      const res = await fetch(`http://localhost:8000/api/plan/${planId}/swap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ day, meal_index: mealIndex }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(extractErrorMessage(res.status, body));
+      }
+      const data: SwapResponse = await res.json();
+      setDayOverrides((prev) => ({ ...prev, [day]: data.meal_plan_day }));
+      setGroceryOverride({ list: data.grocery_list, categories: data.grocery_categories });
+    } catch (err) {
+      setSwapError(err instanceof Error ? err.message : "Couldn't swap that meal — try again.");
+    } finally {
+      setSwappingKey(null);
+    }
+  }
 
   return (
     <>
@@ -76,6 +124,15 @@ export default function PlanResults({ result }: { result: PlanResult }) {
         </section>
       )}
 
+      {result.final_summary && (
+        <section className={cardClass} style={{ background: "var(--alt)", borderColor: "var(--accent-soft)" }}>
+          <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
+            <Sparkles size={18} /> Advice
+          </h2>
+          <p className="whitespace-pre-wrap m-0 text-[14.5px] leading-relaxed">{result.final_summary}</p>
+        </section>
+      )}
+
       {result.macro_targets && (
         <section className={cardClass}>
           <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
@@ -91,18 +148,25 @@ export default function PlanResults({ result }: { result: PlanResult }) {
         </section>
       )}
 
-      {result.meal_plan && (
+      {mealPlan && (
         <section className={cardClass}>
           <h2 className="flex items-center gap-2 text-base font-extrabold mb-1">
-            <UtensilsCrossed size={18} /> {Object.keys(result.meal_plan).length}-Day Meal Plan
+            <UtensilsCrossed size={18} /> {Object.keys(mealPlan).length}-Day Meal Plan
           </h2>
-          <p className="mb-4 text-[12.5px] text-[var(--faint)]">
+          <p className="mb-1 text-[12.5px] text-[var(--faint)]">
             Calories, macros, and prices below are AI-estimated from each recipe&apos;s ingredients — not measured or
             verified nutrition data, and actual cost varies by store, brand, and region.
           </p>
+          {planId && (
+            <p className="mb-3 text-[12.5px] text-[var(--faint)]">
+              Don&apos;t like a meal? Hit <RefreshCw size={10} className="inline align-baseline" /> to swap it for
+              another from the same category.
+            </p>
+          )}
+          {swapError && <p className="mb-3 text-[12.5px] text-red-600">{swapError}</p>}
           <div className="flex flex-col gap-4">
-            {DAY_ORDER.filter((day) => result.meal_plan?.[day]).map((day) => {
-              const dayPlan = result.meal_plan![day];
+            {DAY_ORDER.filter((day) => mealPlan[day]).map((day) => {
+              const dayPlan = mealPlan[day];
               return (
                 <div key={day}>
                   <div className="flex justify-between items-baseline mb-2">
@@ -113,28 +177,43 @@ export default function PlanResults({ result }: { result: PlanResult }) {
                     </span>
                   </div>
                   <div className="flex flex-col">
-                    {dayPlan.meals.map((meal, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-wrap justify-between items-start gap-x-3 gap-y-0.5 text-sm py-1.5 border-t border-[var(--border)]"
-                      >
-                        <span className="min-w-0 break-words">
-                          <span className="font-bold mr-1" style={{ color: "var(--accent)" }}>
-                            {MEAL_LABELS[i] ?? "Meal"}:
+                    {dayPlan.meals.map((meal, i) => {
+                      const key = `${day}-${i}`;
+                      const isSwapping = swappingKey === key;
+                      return (
+                        <div
+                          key={i}
+                          className="flex flex-wrap justify-between items-start gap-x-3 gap-y-0.5 text-sm py-1.5 border-t border-[var(--border)]"
+                        >
+                          <span className="min-w-0 break-words">
+                            <span className="font-bold mr-1" style={{ color: "var(--accent)" }}>
+                              {MEAL_LABELS[i] ?? "Meal"}:
+                            </span>
+                            {meal.source_url ? (
+                              <a href={meal.source_url} target="_blank" rel="noopener noreferrer">
+                                {meal.title}
+                              </a>
+                            ) : (
+                              meal.title
+                            )}
                           </span>
-                          {meal.source_url ? (
-                            <a href={meal.source_url} target="_blank" rel="noopener noreferrer">
-                              {meal.title}
-                            </a>
-                          ) : (
-                            meal.title
-                          )}
-                        </span>
-                        <span className="text-[var(--faint)] shrink-0 whitespace-nowrap">
-                          {Math.round(meal.calories)} kcal · ${meal.price_per_serving.toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+                          <span className="flex items-center gap-2 text-[var(--faint)] shrink-0 whitespace-nowrap">
+                            {Math.round(meal.calories)} kcal · ${meal.price_per_serving.toFixed(2)}
+                            {planId && (
+                              <button
+                                onClick={() => handleSwap(day, i)}
+                                disabled={isSwapping}
+                                aria-label={`Swap ${meal.title} for another meal`}
+                                title="Swap this meal"
+                                className="bg-none border-none cursor-pointer p-0.5 text-[var(--faint)] hover:text-[var(--accent)] disabled:opacity-50 disabled:cursor-default"
+                              >
+                                <RefreshCw size={12} className={isSwapping ? "animate-spin" : undefined} />
+                              </button>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -152,14 +231,14 @@ export default function PlanResults({ result }: { result: PlanResult }) {
         </section>
       )}
 
-      {result.grocery_list && (
+      {groceryList && (
         <section className={cardClass}>
           <div className="flex justify-between items-center mb-1">
             <h2 className="flex items-center gap-2 text-base font-extrabold m-0">
               <ShoppingCart size={18} /> Grocery List
             </h2>
             <button
-              onClick={() => exportGroceryList(result.grocery_list!)}
+              onClick={() => exportGroceryList(groceryList)}
               className="text-[12.5px] font-bold bg-none border-none cursor-pointer underline"
               style={{ color: "var(--accent)" }}
             >
@@ -167,19 +246,45 @@ export default function PlanResults({ result }: { result: PlanResult }) {
             </button>
           </div>
           <p className="mb-3 text-[12.5px] text-[var(--faint)]">Check items off to add them to My List.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
-            {result.grocery_list.map((item, i) => (
-              <label key={i} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isChecked(item)}
-                  onChange={() => toggle(item)}
-                  className="w-[15px] h-[15px] shrink-0"
-                />
-                <span>{item}</span>
-              </label>
-            ))}
-          </div>
+
+          {groceryCategories && Object.keys(groceryCategories).length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {Object.entries(groceryCategories).map(([category, items]) => (
+                <div key={category}>
+                  <h3 className="text-[11.5px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--accent)" }}>
+                    {category}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+                    {items.map((item) => (
+                      <label key={item} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isChecked(item)}
+                          onChange={() => toggle(item)}
+                          className="w-[15px] h-[15px] shrink-0"
+                        />
+                        <span>{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+              {groceryList.map((item, i) => (
+                <label key={i} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isChecked(item)}
+                    onChange={() => toggle(item)}
+                    className="w-[15px] h-[15px] shrink-0"
+                  />
+                  <span>{item}</span>
+                </label>
+              ))}
+            </div>
+          )}
 
           {myListItems.length > 0 && (
             <div className="mt-4 pt-4 border-t border-[var(--border)]">
@@ -197,15 +302,6 @@ export default function PlanResults({ result }: { result: PlanResult }) {
               </ul>
             </div>
           )}
-        </section>
-      )}
-
-      {result.final_summary && (
-        <section className={cardClass} style={{ background: "var(--alt)", borderColor: "var(--accent-soft)" }}>
-          <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
-            <Sparkles size={18} /> Wrap-Up
-          </h2>
-          <p className="whitespace-pre-wrap m-0 text-[14.5px] leading-relaxed">{result.final_summary}</p>
         </section>
       )}
     </>

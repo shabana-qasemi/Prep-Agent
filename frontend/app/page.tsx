@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
-import { Moon, Sun, ShoppingCart } from "lucide-react";
+import { Moon, Sun, ShoppingCart, History } from "lucide-react";
 import ChatTab from "./ChatTab";
 import ExampleTab from "./ExampleTab";
 import ManualEntryTab from "./ManualEntryTab";
@@ -9,6 +9,7 @@ import PantryTab from "./PantryTab";
 import MenuDecoderTab from "./MenuDecoderTab";
 import ProgressTrackerTab from "./ProgressTrackerTab";
 import MyListPanel from "./MyListPanel";
+import ChatHistoryPanel from "./ChatHistoryPanel";
 import HowItWorksModal from "./HowItWorksModal";
 import OnboardingModal from "./OnboardingModal";
 import { useMyList } from "./useMyList";
@@ -16,9 +17,9 @@ import { useMyList } from "./useMyList";
 const TABS = [
   { key: "chat", label: "Chat" },
   { key: "example", label: "Example" },
-  { key: "manual", label: "Manual" },
   { key: "pantry", label: "Pantry" },
   { key: "menu", label: "Menu" },
+  { key: "manual", label: "Manual" },
   { key: "progress", label: "Progress" },
 ] as const;
 
@@ -28,10 +29,18 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("chat");
   const [showMyList, setShowMyList] = useState(false);
+  const [showChatHistory, setShowChatHistory] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [prefillGoal, setPrefillGoal] = useState<string | null>(null);
+  const [resumeConversationId, setResumeConversationId] = useState<string | null>(null);
   const { items: myListItems } = useMyList();
+
+  function handleSelectConversation(conversationId: string) {
+    setActiveTab("chat");
+    setResumeConversationId(conversationId);
+    setShowChatHistory(false);
+  }
 
   const tabRefs = useRef<Record<TabKey, HTMLButtonElement | null>>({
     chat: null,
@@ -81,6 +90,9 @@ export default function Home() {
     <div className="relative min-h-screen bg-[var(--bg)] text-[var(--text)]">
       {showOnboarding && <OnboardingModal onFinish={handleOnboardingFinish} />}
       {showMyList && <MyListPanel onClose={() => setShowMyList(false)} />}
+      {showChatHistory && (
+        <ChatHistoryPanel onClose={() => setShowChatHistory(false)} onSelect={handleSelectConversation} />
+      )}
       {showHowItWorks && <HowItWorksModal onClose={() => setShowHowItWorks(false)} />}
 
       <header className="flex justify-between items-center px-6 sm:px-12 py-6 sm:py-7 border-b border-[var(--border)] gap-4">
@@ -122,6 +134,14 @@ export default function Home() {
             How it works
           </button>
           <button
+            onClick={() => setShowChatHistory(true)}
+            aria-label="View chat history"
+            title="Chat history"
+            className="h-[38px] w-[38px] rounded-full bg-[var(--card)] border-[1.5px] border-[var(--border)] flex items-center justify-center shrink-0"
+          >
+            <History size={16} />
+          </button>
+          <button
             onClick={toggleDarkMode}
             aria-label="Toggle dark mode"
             className="h-[38px] w-[38px] rounded-full bg-[var(--card)] border-[1.5px] border-[var(--border)] flex items-center justify-center shrink-0"
@@ -151,19 +171,24 @@ export default function Home() {
             The fade-up animation restarts automatically whenever `display`
             flips from none back to block/flex — no extra JS needed for that. */}
         <div style={{ display: activeTab === "chat" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
-          <ChatTab prefillGoal={prefillGoal} onPrefillConsumed={() => setPrefillGoal(null)} />
+          <ChatTab
+            prefillGoal={prefillGoal}
+            onPrefillConsumed={() => setPrefillGoal(null)}
+            resumeConversationId={resumeConversationId}
+            onResumeConsumed={() => setResumeConversationId(null)}
+          />
         </div>
         <div style={{ display: activeTab === "example" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <ExampleTab />
-        </div>
-        <div style={{ display: activeTab === "manual" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
-          <ManualEntryTab />
         </div>
         <div style={{ display: activeTab === "pantry" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <PantryTab />
         </div>
         <div style={{ display: activeTab === "menu" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <MenuDecoderTab />
+        </div>
+        <div style={{ display: activeTab === "manual" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
+          <ManualEntryTab />
         </div>
         <div style={{ display: activeTab === "progress" ? "block" : "none", animation: "pa-fade-up 0.3s ease" }}>
           <ProgressTrackerTab />

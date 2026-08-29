@@ -213,7 +213,7 @@ export default function ManualEntryTab() {
         </button>
       )}
 
-      {result && <PlanResults result={result} />}
+      {result && <PlanResults result={result} planId={planId} />}
     </div>
   );
 }
