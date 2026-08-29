@@ -11,5 +11,6 @@ class MealPrepState(BaseModel):
     meal_plan: Optional[dict] = None
     budget_notes: Optional[str] = None
     grocery_list: Optional[list[str]] = None
+    grocery_categories: Optional[dict] = None
     final_summary: Optional[str] = None
     direct_answer: Optional[str] = None

@@ -1,8 +1,9 @@
 import asyncio
 import io
 from unittest.mock import patch
+import pytest
 from starlette.datastructures import UploadFile, Headers
-from menu import decode_menu_photo, MenuDecoderResult, MenuPick
+from menu import decode_menu_photo, MenuDecoderResult, MenuPick, MAX_IMAGE_BYTES
 
 
 def make_fake_upload(content_type="image/jpeg"):
@@ -51,3 +52,17 @@ def test_decode_menu_photo_falls_back_to_jpeg_for_unsupported_type():
     sent_messages = mock_llm.invoke.call_args.args[0]
     sent_content = sent_messages[0].content
     assert sent_content[1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+
+
+def test_decode_menu_photo_rejects_oversized_upload():
+    oversized = UploadFile(
+        file=io.BytesIO(b"x" * (MAX_IMAGE_BYTES + 1)),
+        filename="huge.jpg",
+        headers=Headers({"content-type": "image/jpeg"}),
+    )
+
+    with patch("menu.structured_vision_llm") as mock_llm:
+        with pytest.raises(ValueError):
+            asyncio.run(decode_menu_photo(oversized, "bulking"))
+
+    mock_llm.invoke.assert_not_called()

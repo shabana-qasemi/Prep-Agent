@@ -1,6 +1,6 @@
 from unittest.mock import patch, MagicMock
 from state import MealPrepState
-from agents.mealplan import mealplan_agent, MealEstimate
+from agents.mealplan import mealplan_agent, swap_meal, MealEstimate
 from db import init_db, cache_recipe
 
 
@@ -138,3 +138,49 @@ def test_mealplan_skips_estimation_for_already_cached_recipes():
 
     mock_llm.invoke.assert_not_called()
     assert result["meal_plan"]["monday"]["meals"][0]["title"] == "Cached Meal"
+
+
+def test_swap_meal_replaces_slot_and_recomputes_day_nutrients():
+    init_db()
+    old_meal = {"id": 1, "title": "Old", "calories": 400, "protein_g": 30, "carbs_g": 40, "fat_g": 10, "price_per_serving": 2.0}
+    new_meal_cached = {
+        "id": 2, "title": "New", "calories": 500, "protein_g": 50, "carbs_g": 50, "fat_g": 20,
+        "price_per_serving": 3.0, "ingredients": ["1 cup Rice"],
+    }
+    cache_recipe(2, new_meal_cached)
+    plan = {
+        "meal_plan": {
+            "monday": {
+                "meals": [dict(old_meal), {"id": 3, "calories": 100, "protein_g": 10, "carbs_g": 10, "fat_g": 5}],
+                "nutrients": {"calories": 500, "protein": 40, "fat": 15, "carbohydrates": 50},
+            }
+        }
+    }
+
+    fake_filter_response = MagicMock(ok=True)
+    fake_filter_response.json.return_value = {"meals": [{"idMeal": "2"}]}
+
+    with patch("agents.mealplan.requests.get", return_value=fake_filter_response):
+        updated_day = swap_meal(plan, "monday", 0)
+
+    assert updated_day["meals"][0]["id"] == 2
+    assert updated_day["meals"][0]["title"] == "New"
+    # nutrients recomputed from the new meal (500+100 cal, 50+10 protein, etc.)
+    assert updated_day["nutrients"]["calories"] == 600
+    assert updated_day["nutrients"]["protein"] == 60
+
+
+def test_swap_meal_rejects_unknown_day_or_index():
+    plan = {"meal_plan": {"monday": {"meals": [{"id": 1, "calories": 1, "protein_g": 1, "carbs_g": 1, "fat_g": 1}]}}}
+
+    try:
+        swap_meal(plan, "someday", 0)
+        assert False, "expected ValueError for unknown day"
+    except ValueError:
+        pass
+
+    try:
+        swap_meal(plan, "monday", 5)
+        assert False, "expected ValueError for out-of-range meal_index"
+    except ValueError:
+        pass

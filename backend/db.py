@@ -32,6 +32,35 @@ def init_db() -> None:
         )
         """
     )
+    # visitor_id was added after this table already existed in some deployed
+    # databases — CREATE TABLE IF NOT EXISTS won't retrofit a column onto an
+    # existing table, so add it explicitly if missing.
+    existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(plans)").fetchall()}
+    if "visitor_id" not in existing_columns:
+        conn.execute("ALTER TABLE plans ADD COLUMN visitor_id TEXT NOT NULL DEFAULT ''")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS conversations (
+            id TEXT PRIMARY KEY,
+            visitor_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            text TEXT NOT NULL,
+            plan_id TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS api_usage (
@@ -88,11 +117,11 @@ def cache_recipe(recipe_id: int, data: dict) -> None:
     conn.close()
 
 
-def save_plan(plan_id: str, data: dict) -> None:
+def save_plan(plan_id: str, data: dict, visitor_id: str = "") -> None:
     conn = get_connection()
     conn.execute(
-        "INSERT INTO plans (id, data, created_at) VALUES (?, ?, ?)",
-        (plan_id, json.dumps(data), datetime.now(timezone.utc).isoformat()),
+        "INSERT INTO plans (id, data, created_at, visitor_id) VALUES (?, ?, ?, ?)",
+        (plan_id, json.dumps(data), datetime.now(timezone.utc).isoformat(), visitor_id),
     )
     conn.commit()
     conn.close()
@@ -103,6 +132,65 @@ def get_plan(plan_id: str) -> Optional[dict]:
     row = conn.execute("SELECT data FROM plans WHERE id = ?", (plan_id,)).fetchone()
     conn.close()
     return json.loads(row["data"]) if row else None
+
+
+def update_plan(plan_id: str, data: dict) -> None:
+    conn = get_connection()
+    conn.execute("UPDATE plans SET data = ? WHERE id = ?", (json.dumps(data), plan_id))
+    conn.commit()
+    conn.close()
+
+
+def create_conversation(conversation_id: str, visitor_id: str, first_message: str) -> None:
+    title = first_message[:60] + "…" if len(first_message) > 60 else first_message
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO conversations (id, visitor_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        (conversation_id, visitor_id, title, now, now),
+    )
+    conn.commit()
+    conn.close()
+
+
+def touch_conversation(conversation_id: str) -> None:
+    conn = get_connection()
+    conn.execute(
+        "UPDATE conversations SET updated_at = ? WHERE id = ?",
+        (datetime.now(timezone.utc).isoformat(), conversation_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_conversations(visitor_id: str, limit: int = 30) -> list[dict]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, title, updated_at FROM conversations WHERE visitor_id = ? ORDER BY updated_at DESC LIMIT ?",
+        (visitor_id, limit),
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def add_message(conversation_id: str, role: str, text: str, plan_id: Optional[str] = None) -> None:
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO messages (conversation_id, role, text, plan_id, created_at) VALUES (?, ?, ?, ?, ?)",
+        (conversation_id, role, text, plan_id, datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_messages(conversation_id: str) -> list[dict]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT role, text, plan_id, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC",
+        (conversation_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 def get_usage_count(client_ip: str, usage_date: str) -> int:
