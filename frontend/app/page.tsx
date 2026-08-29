@@ -119,12 +119,28 @@ export default function Home() {
       </header>
 
       <main className="relative max-w-[1180px] mx-auto px-6 sm:px-10 pb-24">
-        {activeTab === "chat" && <ChatTab prefillGoal={prefillGoal} onPrefillConsumed={() => setPrefillGoal(null)} />}
-        {activeTab === "example" && <ExampleTab />}
-        {activeTab === "manual" && <ManualEntryTab />}
-        {activeTab === "pantry" && <PantryTab />}
-        {activeTab === "menu" && <MenuDecoderTab />}
-        {activeTab === "progress" && <ProgressTrackerTab />}
+        {/* Every tab stays mounted the whole time — only visually hidden when
+            inactive — so switching tabs never wipes an in-progress or
+            completed generation. A naive `{active && <Tab/>}` would unmount
+            and destroy each tab's state the moment you looked away from it. */}
+        <div style={{ display: activeTab === "chat" ? "block" : "none" }}>
+          <ChatTab prefillGoal={prefillGoal} onPrefillConsumed={() => setPrefillGoal(null)} />
+        </div>
+        <div style={{ display: activeTab === "example" ? "block" : "none" }}>
+          <ExampleTab />
+        </div>
+        <div style={{ display: activeTab === "manual" ? "block" : "none" }}>
+          <ManualEntryTab />
+        </div>
+        <div style={{ display: activeTab === "pantry" ? "block" : "none" }}>
+          <PantryTab />
+        </div>
+        <div style={{ display: activeTab === "menu" ? "block" : "none" }}>
+          <MenuDecoderTab />
+        </div>
+        <div style={{ display: activeTab === "progress" ? "block" : "none" }}>
+          <ProgressTrackerTab />
+        </div>
       </main>
     </div>
   );

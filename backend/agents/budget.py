@@ -1,7 +1,13 @@
 from langchain_groq import ChatGroq
 from state import MealPrepState
+from llm_utils import retry_on_groq_error
 
 llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
+
+
+@retry_on_groq_error
+def _invoke(prompt: str):
+    return llm.invoke(prompt)
 
 
 def budget_agent(state: MealPrepState) -> dict:
@@ -17,7 +23,7 @@ def budget_agent(state: MealPrepState) -> dict:
 
     plan_summary = "\n".join(day_summaries)
 
-    response = llm.invoke(
+    response = _invoke(
         "Here is the user's goal (which may mention a budget) and their "
         "7-day meal plan with each day's real cost. Assess whether the "
         "full week fits within any stated budget, and suggest specific "

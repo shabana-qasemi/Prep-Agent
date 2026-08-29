@@ -1,11 +1,17 @@
 from langchain_groq import ChatGroq
 from state import MealPrepState
+from llm_utils import retry_on_groq_error
 
 llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
 
 
+@retry_on_groq_error
+def _invoke(prompt: str):
+    return llm.invoke(prompt)
+
+
 def answer_agent(state: MealPrepState) -> dict:
-    response = llm.invoke(
+    response = _invoke(
         "You're Prep-Agent, a meal-prep planning assistant. The user sent "
         "this message, and the orchestrator has already determined it's NOT "
         "a request to build a meal plan — just answer it directly and "

@@ -1,7 +1,13 @@
 from langchain_groq import ChatGroq
 from state import MealPrepState
+from llm_utils import retry_on_groq_error
 
 llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
+
+
+@retry_on_groq_error
+def _invoke(prompt: str):
+    return llm.invoke(prompt)
 
 
 def summary_agent(state: MealPrepState) -> dict:
@@ -25,7 +31,7 @@ def summary_agent(state: MealPrepState) -> dict:
 
     context = "\n\n".join(parts)
 
-    response = llm.invoke(
+    response = _invoke(
         "Here is a completed meal prep plan generated for a user. Write a short, "
         "encouraging 2-4 sentence wrap-up: confirm the plan meets their stated goal, "
         "call out the single most useful actionable tip drawn from the data below "

@@ -8,6 +8,7 @@ import uuid
 from datetime import date
 from typing import Optional
 import requests
+from groq import RateLimitError as GroqRateLimitError
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -81,6 +82,17 @@ def stream_plan_events(goal: str):
         yield f"data: {json.dumps({'step': 'done', 'plan_id': plan_id})}\n\n"
     except (requests.exceptions.HTTPError, RuntimeError) as e:
         yield f"data: {json.dumps({'step': 'error', 'message': f'A required external service failed: {e}'})}\n\n"
+    except GroqRateLimitError:
+        # Every LLM call already retries through this automatically (see
+        # llm_utils.retry_on_groq_error) — reaching here means Groq's
+        # free-tier per-minute token limit stayed exhausted through all of
+        # them, which a longer plan (more days, more unique recipes) makes
+        # more likely to hit.
+        rate_limit_message = (
+            "Groq's free-tier rate limit is temporarily exhausted — this happens "
+            "more on longer plans. Wait a minute and try again, or try fewer days."
+        )
+        yield f"data: {json.dumps({'step': 'error', 'message': rate_limit_message})}\n\n"
     except Exception as e:
         yield f"data: {json.dumps({'step': 'error', 'message': f'Something went wrong: {e}'})}\n\n"
 

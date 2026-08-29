@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from langchain_groq import ChatGroq
 from state import MealPrepState
 from db import get_cached_recipe, cache_recipe
-from llm_utils import retry_on_bad_structured_output
+from llm_utils import retry_on_groq_error
 
 BASE_URL = "https://www.themealdb.com/api/json/v1/1"
 FILTER_URL = f"{BASE_URL}/filter.php"
@@ -65,7 +65,7 @@ class MealEstimate(BaseModel):
 structured_estimate_llm = llm.with_structured_output(MealEstimate, method="json_mode")
 
 
-@retry_on_bad_structured_output
+@retry_on_groq_error
 def _estimate_one(prompt: str) -> MealEstimate:
     return structured_estimate_llm.invoke(prompt)
 

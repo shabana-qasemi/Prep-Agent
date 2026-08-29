@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from langchain_groq import ChatGroq
 from state import MealPrepState
-from llm_utils import retry_on_bad_structured_output
+from llm_utils import retry_on_groq_error
 
 llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
 
@@ -18,7 +18,7 @@ class MacroTargets(BaseModel):
 structured_llm = llm.with_structured_output(MacroTargets, method="json_mode")
 
 
-@retry_on_bad_structured_output
+@retry_on_groq_error
 def _estimate(prompt: str) -> MacroTargets:
     return structured_llm.invoke(prompt)
 

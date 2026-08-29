@@ -2,7 +2,7 @@ from typing import Literal
 from pydantic import BaseModel
 from langchain_groq import ChatGroq
 from state import MealPrepState
-from llm_utils import retry_on_bad_structured_output
+from llm_utils import retry_on_groq_error
 
 VALID_STEPS = Literal["macro", "mealplan", "budget", "grocery"]
 
@@ -23,7 +23,7 @@ class OrchestratorDecision(BaseModel):
 structured_llm = llm.with_structured_output(OrchestratorDecision, method="json_mode")
 
 
-@retry_on_bad_structured_output
+@retry_on_groq_error
 def _decide(prompt: str) -> OrchestratorDecision:
     return structured_llm.invoke(prompt)
 
